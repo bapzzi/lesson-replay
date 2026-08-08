@@ -1,0 +1,110 @@
+{
+  "name": "lesson-replay",
+  "displayName": "수업 리플레이 (Lesson Replay)",
+  "description": "라이브 코딩 수업의 하루를 자동 기록하고 타임라인으로 복기하는 확장. 저장마다 스냅샷, 씬별 +n/−n·변경 시그니처, 파일 필터, 필기 교차·편집, 갈아엎기(♻️) 전후 비교, TIL 원자재 내보내기. 서버 없음 — 데이터는 전부 내 폴더의 git·md 파일.",
+  "version": "0.5.0",
+  "publisher": "bapzzi",
+  "license": "MIT",
+  "icon": "icon.png",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other", "Education"],
+  "keywords": ["replay", "history", "retrospective", "bootcamp", "study-log", "복기", "타임라인", "TIL", "부트캠프", "학습기록"],
+  "galleryBanner": { "color": "#1f1f1f", "theme": "dark" },
+  "main": "./extension.js",
+  "activationEvents": ["onStartupFinished"],
+  "contributes": {
+    "commands": [
+      { "command": "lessonReplay.openStory", "title": "수업 리플레이: 오늘 복기 열기" },
+      { "command": "lessonReplay.openStoryForDate", "title": "수업 리플레이: 날짜 골라 복기 열기" },
+      { "command": "lessonReplay.toggleRecord", "title": "수업 리플레이: 자동 기록 켜기/끄기" },
+      { "command": "lessonReplay.openNotes", "title": "수업 리플레이: 오늘 필기 열기", "icon": "$(edit)" },
+      { "command": "lessonReplay.exportDay", "title": "수업 리플레이: 오늘 복기를 TIL 원자재로 내보내기" },
+      { "command": "lessonReplay.initRepo", "title": "수업 리플레이: 이 폴더에 git 저장소 만들기" },
+      { "command": "lessonReplay.setArchiveDir", "title": "수업 리플레이: 아카이브 폴더 지정" },
+      { "command": "lessonReplay.refreshDays", "title": "수업 리플레이: 날짜 목록 새로고침", "icon": "$(refresh)" }
+    ],
+    "views": {
+      "explorer": [
+        { "id": "lessonReplay.days", "name": "수업 리플레이", "icon": "$(history)" }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "lessonReplay.days",
+        "contents": "수업 실습 폴더가 열려 있지 않습니다.\n실습 폴더를 열면 여기서 하루하루의 복기를 볼 수 있습니다.\n[폴더 열기](command:vscode.openFolder)",
+        "when": "lessonReplay.state == 'noFolder'"
+      },
+      {
+        "view": "lessonReplay.days",
+        "contents": "이 폴더는 아직 git 저장소가 아닙니다.\n버튼 한 번이면 준비 끝 — 기록은 전부 이 폴더 안에만 남고, 서버로 가지 않습니다.\n[git 저장소 만들기](command:lessonReplay.initRepo)",
+        "when": "lessonReplay.state == 'notRepo'"
+      },
+      {
+        "view": "lessonReplay.days",
+        "contents": "아직 스냅샷이 없습니다.\n기록을 켜고 코드를 저장(Ctrl+S)하면 여기에 날짜가 쌓입니다.\n[수업 기록 켜기](command:lessonReplay.toggleRecord)",
+        "when": "lessonReplay.state == 'noCommits'"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        { "command": "lessonReplay.openNotes", "when": "view == lessonReplay.days", "group": "navigation@1" },
+        { "command": "lessonReplay.refreshDays", "when": "view == lessonReplay.days", "group": "navigation@2" }
+      ]
+    },
+    "configuration": {
+      "title": "수업 리플레이",
+      "properties": {
+        "lessonReplay.autoRecord": {
+          "type": "boolean", "default": false, "scope": "resource",
+          "description": "(구버전 호환) 기록 켜기는 이제 하단 상태바 토글로 합니다 — 기기별로 저장되어 이 설정처럼 저장소에 커밋·전파되지 않습니다. 이 설정이 켜진 저장소를 열면 확인 창을 한 번 띄웁니다."
+        },
+        "lessonReplay.commitDelaySeconds": {
+          "type": "number", "default": 20,
+          "description": "마지막 저장 후 이 시간(초)이 지나면 스냅샷 커밋. 연속 저장은 하나로 묶입니다."
+        },
+        "lessonReplay.blocks": {
+          "type": "array", "items": { "type": "string" },
+          "default": ["09:10-10:15", "10:15-11:30", "13:00-13:45", "14:00-14:45", "15:15-16:00", "16:15-16:45", "16:45-17:50"],
+          "description": "수업 시간 블록 (HH:MM-HH:MM). 복기 화면의 파트 단위가 됩니다. 마지막 블록은 자율 실습 시간까지 덮게 잡아 두세요."
+        },
+        "lessonReplay.notesDir": {
+          "type": "string", "default": "필기",
+          "description": "필기 폴더 이름. '<폴더>/YYYY-MM-DD-타임라인.md'의 [HH:mm] 줄을 복기에 교차시킵니다."
+        },
+        "lessonReplay.archiveDir": {
+          "type": "string", "default": "",
+          "description": "필기·한 줄 정리 아카이브를 모아둘 폴더(절대경로, 예: C:\\수업아카이브). 비우면 실습 저장소 루트에 저장합니다. 지정하면 저장소가 여러 개여도 아카이브는 이 한곳에 쌓입니다. 단, 저장소 밖 폴더는 git 백업에서 빠집니다."
+        },
+        "lessonReplay.tilPrompt": {
+          "type": "string",
+          "default": "아래는 오늘 라이브 코딩 수업에서 내 편집기에 남은 자동 기록이다 — 파트별 '배운 것' 메모, 수업 중 필기(있는 경우), 파일별 코드 변경 이력(diff). 이걸 바탕으로 오늘의 TIL 초안을 작성해줘.\n- 시간 순 흐름이 드러나게: 무엇을 어떤 순서로 만들었는지\n- 코드는 핵심 부분만 인용하고, 왜 그렇게 쓰는지 한 줄씩 붙여줘\n- 필기가 있으면 오탈자·비문은 다듬되 내용과 내 표현은 유지해줘\n- 필기 없이 diff만 있는 파트는 코드에서 배운 개념을 역으로 정리해줘",
+          "editPresentation": "multilineText",
+          "description": "TIL 원자재 내보내기 파일 맨 위에 담을 AI 요청 프롬프트. 내보낸 파일을 통째로 AI에게 붙여넣으면 이 프롬프트대로 TIL 초안을 받습니다. 자신의 TIL 스타일에 맞게 고쳐 쓰세요. 비우면 프롬프트 없이 원자재만 내보냅니다."
+        },
+        "lessonReplay.paragraphGapMinutes": {
+          "type": "number", "default": 3,
+          "description": "단락 기준 텀(분). 이 시간 이상 손을 놓으면 같은 파일 코드도, 필기도 새 단락으로 나뉩니다. 복기 화면의 씬·필기 묶음 단위입니다."
+        },
+        "lessonReplay.noiseThreshold": {
+          "type": "number", "default": 10,
+          "description": "한 커밋이 이 수 이상의 파일을 건드리면 일괄 작업(🧹)으로 뭉쳐 접습니다."
+        },
+        "lessonReplay.holidays": {
+          "type": "array", "items": { "type": "string" },
+          "default": [],
+          "description": "휴일 목록 (YYYY-MM-DD). 주말과 함께 필기 틀 생성에서 제외됩니다."
+        },
+        "lessonReplay.excludePrefixes": {
+          "type": "array", "items": { "type": "string" },
+          "default": ["필기/", "복기/"],
+          "description": "복기 화면에서 제외할 경로 접두사 (기록 자체는 커밋에 남습니다)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "package": "vsce package",
+    "test": "node --test test/*.test.js"
+  },
+  "repository": { "type": "git", "url": "https://github.com/bapzzi/lesson-replay" }
+}
