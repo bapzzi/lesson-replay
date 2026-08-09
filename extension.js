@@ -129,7 +129,8 @@ async function openStory(date) {
   }
   panel.title = `수업 복기 ${date}`;
   panel.webview.html = render(model, notes.loadSummaries(archiveRoot(), cfg().notesDir, date), nav,
-    { notes: reviewNotes, accent: extCtx.globalState.get('accent') || '' });
+    { notes: reviewNotes, accent: extCtx.globalState.get('accent') || '',
+      marks: reviewData.loadMarks(archiveRoot(), cfg().notesDir, date) });
   panel.reveal();
 }
 
@@ -143,6 +144,9 @@ async function onWebviewMessage(msg) {
     reviewData.saveNotes(archiveRoot(), cfg().notesDir, msg.date, msg.notes || []);
   } else if (msg.cmd === 'setAccent') {
     extCtx.globalState.update('accent', msg.accent || '');
+  } else if (msg.cmd === 'toggleMark' && msg.key) {
+    reviewData.toggleMark(archiveRoot(), cfg().notesDir, msg.date, msg.key);
+    treeProvider.refresh(); // 사이드바 "다시 볼 것" 큐 갱신
   } else if (msg.cmd === 'openFile') {
     const p = path.isAbsolute(msg.path) ? msg.path : path.join(repo, msg.path);
     try {
@@ -247,7 +251,8 @@ async function activate(context) {
   guards = createGuards({ vscode, out, globalState: context.globalState });
   treeProvider = createDaysProvider({
     vscode, cfg, buildModelFor, recentDays,
-    repoState: () => ({ repoTop, repoIsGit })
+    repoState: () => ({ repoTop, repoIsGit }),
+    loadMarks: (date) => reviewData.loadMarks(archiveRoot(), cfg().notesDir, date)
   });
   context.subscriptions.push(vscode.window.registerTreeDataProvider('lessonReplay.days', treeProvider));
 

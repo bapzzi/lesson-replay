@@ -1,8 +1,8 @@
 {
   "name": "lesson-replay",
   "displayName": "수업 리플레이 (Lesson Replay)",
-  "description": "라이브 코딩 수업의 하루를 자동 기록하고 타임라인으로 복기하는 확장. 저장마다 스냅샷, 씬별 +n/−n·변경 시그니처, 파일 필터, 필기 교차·편집, 갈아엎기(♻️) 전후 비교, TIL 원자재 내보내기. 서버 없음 — 데이터는 전부 내 폴더의 git·md 파일.",
-  "version": "0.5.0",
+  "description": "오늘 수업에서 코딩한 과정을 자동으로 기록했다가, 하루 끝에 시간 순서대로 되돌려 보고 TIL 초안 재료까지 뽑아주는 확장. 계정·서버·설정 없음 — 코드를 저장만 하면 됩니다. 필기를 곁들이면 그 시각의 코드 사이에 교차 표시됩니다.",
+  "version": "0.6.0",
   "publisher": "bapzzi",
   "license": "MIT",
   "icon": "icon.png",
@@ -51,6 +51,43 @@
         { "command": "lessonReplay.refreshDays", "when": "view == lessonReplay.days", "group": "navigation@2" }
       ]
     },
+    "walkthroughs": [
+      {
+        "id": "lessonReplay.gettingStarted",
+        "title": "수업 리플레이 시작하기",
+        "description": "기록 켜기부터 TIL 내보내기까지 4단계. 한 번만 따라 하면 이후엔 저장만 하면 됩니다.",
+        "steps": [
+          {
+            "id": "record",
+            "title": "수업 기록 켜기",
+            "description": "실습 폴더를 연 상태에서 기록을 켭니다. ⚠ 개인 연습 저장소 전용 — 팀 과제·제출용 저장소에서는 켜지 마세요.\n[기록 켜기](command:lessonReplay.toggleRecord)",
+            "media": { "markdown": "media/step-record.md" },
+            "completionEvents": ["onCommand:lessonReplay.toggleRecord"]
+          },
+          {
+            "id": "notes",
+            "title": "오늘 필기 열기",
+            "description": "파트별 제목이 미리 깔린 필기 파일이 열립니다. 수업 중 해당 파트 아래에 한 줄씩 적고 저장하면, 적은 시각이 복기에서 코드 사이에 교차됩니다.\n[오늘 필기 열기](command:lessonReplay.openNotes)",
+            "media": { "markdown": "media/step-notes.md" },
+            "completionEvents": ["onCommand:lessonReplay.openNotes"]
+          },
+          {
+            "id": "story",
+            "title": "하루 복기 열기",
+            "description": "코드를 몇 번 저장한 뒤 열어 보세요. 저장한 시각·파일·변경량이 수업 시간표 위에 타임라인으로 재구성됩니다.\n[오늘 복기 열기](command:lessonReplay.openStory)",
+            "media": { "image": "images/replay-view.png", "altText": "복기 화면 — 미니맵·파일 칩·씬 타임라인" },
+            "completionEvents": ["onCommand:lessonReplay.openStory"]
+          },
+          {
+            "id": "export",
+            "title": "TIL 원자재로 내보내기",
+            "description": "하루치 기록(배운 것+필기+코드 diff)을 md 한 파일로 만듭니다. 통째로 AI에 붙여넣으면 TIL 초안이 나옵니다.\n[내보내기](command:lessonReplay.exportDay)",
+            "media": { "markdown": "media/step-export.md" },
+            "completionEvents": ["onCommand:lessonReplay.exportDay"]
+          }
+        ]
+      }
+    ],
     "configuration": {
       "title": "수업 리플레이",
       "properties": {
@@ -77,7 +114,7 @@
         },
         "lessonReplay.tilPrompt": {
           "type": "string",
-          "default": "아래는 오늘 라이브 코딩 수업에서 내 편집기에 남은 자동 기록이다 — 파트별 '배운 것' 메모, 수업 중 필기(있는 경우), 파일별 코드 변경 이력(diff). 이걸 바탕으로 오늘의 TIL 초안을 작성해줘.\n- 시간 순 흐름이 드러나게: 무엇을 어떤 순서로 만들었는지\n- 코드는 핵심 부분만 인용하고, 왜 그렇게 쓰는지 한 줄씩 붙여줘\n- 필기가 있으면 오탈자·비문은 다듬되 내용과 내 표현은 유지해줘\n- 필기 없이 diff만 있는 파트는 코드에서 배운 개념을 역으로 정리해줘",
+          "default": "아래는 오늘 라이브 코딩 수업에서 내 편집기에 남은 자동 기록이다 — 파트별 '배운 것' 메모, 수업 중 필기(있는 경우), 파일별 코드 변경 이력(diff). 이걸 바탕으로 부트캠프 제출용 TIL 초안을 작성해줘.\n- 구성 5칸: ①한줄요약(TL;DR) ②배운 내용 — 핵심 개념 1~2개만 골라 깊게(전부 나열 금지) ③실습·결과 — 무엇을 어떤 순서로 만들었는지 ④문제와 해결 — 지웠다 다시 만든 흔적(♻️)·고친 흔적을 트러블슈팅으로: 문제/가설/원인/해결/재발 방지 ⑤다음에 할 일 2~3개\n- 코드는 달라진 부분만 짧게 인용하고 왜 그렇게 쓰는지 한 줄씩. 파일 전문 붙여넣기 금지\n- 필기가 있으면 그 표현을 살려 '나의 언어'로. 오탈자만 다듬고, AI 티 나는 문장·억지 마무리 금지\n- 필기 없이 diff만 있는 파트는 코드에서 배운 개념을 역으로 정리",
           "editPresentation": "multilineText",
           "description": "TIL 원자재 내보내기 파일 맨 위에 담을 AI 요청 프롬프트. 내보낸 파일을 통째로 AI에게 붙여넣으면 이 프롬프트대로 TIL 초안을 받습니다. 자신의 TIL 스타일에 맞게 고쳐 쓰세요. 비우면 프롬프트 없이 원자재만 내보냅니다."
         },

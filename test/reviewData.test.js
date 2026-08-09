@@ -46,3 +46,16 @@ test('saveNotes/loadNotes: seq 순으로 정렬 유지', () => {
   assert.deepStrictEqual(notes.map(n => n.id), ['a', 'b']);
   fs.rmSync(root, { recursive: true, force: true });
 });
+
+test('marks: 토글로 추가·제거되고 파일에 남는다', () => {
+  const { loadMarks, toggleMark } = require('../lib/reviewData');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lr-marks-'));
+  const key = 'src/App.js|09:18';
+  assert.deepStrictEqual(loadMarks(dir, '필기', '2026-08-09'), []);
+  toggleMark(dir, '필기', '2026-08-09', key);
+  assert.deepStrictEqual(loadMarks(dir, '필기', '2026-08-09'), [key]);
+  toggleMark(dir, '필기', '2026-08-09', 'b.js|10:00');
+  toggleMark(dir, '필기', '2026-08-09', key); // 해제
+  assert.deepStrictEqual(loadMarks(dir, '필기', '2026-08-09'), ['b.js|10:00']);
+  fs.rmSync(dir, { recursive: true, force: true });
+});

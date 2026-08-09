@@ -2,4 +2,4 @@
 **/*.vsix
 node_modules/**
 test/**
-images/**
+images/demo.gif
