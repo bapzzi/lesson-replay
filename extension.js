@@ -138,7 +138,7 @@ async function openStory(date) {
   }
   panel.title = `수업 복기 ${date}`;
   panel.webview.html = render(model, notes.loadSummaries(archiveRoot(), cfg().notesDir, date), nav,
-    { notes: reviewNotes, accent: extCtx.globalState.get('accent') || '',
+    { notes: reviewNotes,
       marks: reviewData.loadMarks(archiveRoot(), cfg().notesDir, date) });
   panel.reveal();
 }
@@ -151,8 +151,6 @@ async function onWebviewMessage(msg) {
     if (panel) panel.webview.postMessage({ cmd: 'summarySaved', part: msg.part });
   } else if (msg.cmd === 'saveNotes') {
     reviewData.saveNotes(archiveRoot(), cfg().notesDir, msg.date, msg.notes || []);
-  } else if (msg.cmd === 'setAccent') {
-    extCtx.globalState.update('accent', msg.accent || '');
   } else if (msg.cmd === 'toggleMark' && msg.key) {
     reviewData.toggleMark(archiveRoot(), cfg().notesDir, msg.date, msg.key);
     treeProvider.refresh(); // 사이드바 "다시 볼 것" 큐 갱신
