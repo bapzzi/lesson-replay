@@ -47,6 +47,45 @@ test('saveNotes/loadNotes: seq 순으로 정렬 유지', () => {
   fs.rmSync(root, { recursive: true, force: true });
 });
 
+test('loadNotes: 시드 후 타임라인에 추가된 줄이 다음 로드에서 병합된다 (A1)', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'replay-'));
+  const first = loadNotes(root, '필기', '2026-08-09', '[09:12] 오전 필기');
+  assert.strictEqual(first.length, 1);
+  // 점심에 복기 탭을 열었다 닫고, 오후에 필기가 더 쌓인 상황
+  const merged = loadNotes(root, '필기', '2026-08-09', '[09:12] 오전 필기\n[17:10] 오후 필기');
+  assert.strictEqual(merged.length, 2);
+  assert.strictEqual(merged[1].text, '오후 필기');
+  assert.strictEqual(merged[1].seq, 17 * 60 + 10);
+  // 재로드해도 중복 병합 없음
+  const again = loadNotes(root, '필기', '2026-08-09', '[09:12] 오전 필기\n[17:10] 오후 필기');
+  assert.strictEqual(again.length, 2);
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('loadNotes: 병합돼도 복기 화면에서의 수정·삭제는 유지된다', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'replay-'));
+  const first = loadNotes(root, '필기', '2026-08-09', '[09:12] 원본 필기');
+  first[0].text = '복기에서 고친 필기';
+  saveNotes(root, '필기', '2026-08-09', first); // saveNotes가 seededLines를 보존해야 한다
+  const merged = loadNotes(root, '필기', '2026-08-09', '[09:12] 원본 필기\n[17:10] 오후 필기');
+  assert.strictEqual(merged.length, 2);
+  assert.strictEqual(merged[0].text, '복기에서 고친 필기'); // 수정 보존 + 원본 부활 없음
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('loadNotes: 구버전 JSON(seededLines 없음)도 마지막 노트 이후 줄만 병합한다', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'replay-'));
+  const p = reviewNotesPath(root, '필기', '2026-08-09');
+  fs.mkdirSync(path.dirname(p), { recursive: true });
+  fs.writeFileSync(p, JSON.stringify({
+    notes: [{ id: 'n1', time: '09:12', text: '오전 필기', seq: 552 }]
+  }), 'utf8'); // v0.7.0 이전 형식
+  const merged = loadNotes(root, '필기', '2026-08-09', '[09:12] 오전 필기\n[17:10] 오후 필기');
+  assert.strictEqual(merged.length, 2);
+  assert.strictEqual(merged[1].text, '오후 필기');
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
 test('marks: 토글로 추가·제거되고 파일에 남는다', () => {
   const { loadMarks, toggleMark } = require('../lib/reviewData');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lr-marks-'));

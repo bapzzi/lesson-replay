@@ -60,10 +60,18 @@ async function migrateLegacySetting() {
 }
 
 // 필기·한 줄 정리가 쌓이는 곳: archiveDir 설정이 있으면 그 폴더, 없으면 실습 repo 루트
+let warnedArchiveDir = false; // 폴백을 조용히 넘기지 않는다 — 세션당 1회 알림
 function archiveRoot() {
   const a = cfg().archiveDir;
   if (a) {
-    try { fs.mkdirSync(a, { recursive: true }); return a; } catch { /* 잘못된 경로 → repo로 폴백 */ }
+    try { fs.mkdirSync(a, { recursive: true }); return a; }
+    catch {
+      if (!warnedArchiveDir) {
+        warnedArchiveDir = true;
+        vscode.window.showWarningMessage(
+          `아카이브 폴더를 쓸 수 없어 필기를 실습 저장소에 저장합니다: ${a} — 설정(lessonReplay.archiveDir)을 확인해 주세요.`);
+      }
+    }
   }
   return repoRoot();
 }
@@ -187,7 +195,8 @@ async function exportDay(date) {
   const repo = repoRoot();
   for (const ch of model.chapters) {
     for (const it of ch.items) {
-      if (it.type === 'scene') it.diffText = await sceneDiff(repo, it.firstSha, it.lastSha, it.file);
+      // ♻️ 씬은 화면과 동일하게 "지우기 전 판 ↔ 새 판" 비교 — new file diff만 나가던 결손 수정
+      if (it.type === 'scene') it.diffText = await sceneDiff(repo, it.reworkSha || it.firstSha, it.lastSha, it.file);
     }
   }
   const md = buildExportMd(model, notes.loadSummaries(archiveRoot(), cfg().notesDir, date),

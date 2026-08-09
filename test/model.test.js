@@ -62,6 +62,38 @@ test('삭제 후 재생성은 ♻️로 판정된다', () => {
   assert.strictEqual(rework.reworkSha, 's2'); // 지우기 직전 판 비교의 기준 커밋
 });
 
+test('멀티파일 커밋은 파일마다 씬을 얻는다 — 비대표 파일 증발 없음 (A2)', () => {
+  const day = buildDay({
+    date: '2026-08-07', notes: [], config: CONFIG,
+    commits: [
+      c('s1', '09:20', [f('App.jsx', 'M')]),
+      c('s2', '09:21', [f('App.jsx', 'M'), f('PostForm.jsx', 'A')]) // 저장 미루다 한 번에
+    ]
+  });
+  assert.strictEqual(day.sceneCount, 2);
+  const scenes = day.chapters.flatMap(ch => ch.items).filter(i => i.type === 'scene');
+  const post = scenes.find(s => s.file === 'PostForm.jsx');
+  assert.ok(post);
+  assert.strictEqual(post.icon, '🟢');
+  assert.strictEqual(post.firstSha, 's2');
+  // 파일 칩에도 씬 수가 잡힌다 (씬 0개 칩 클릭 → 빈 화면 방지)
+  assert.strictEqual(day.fileList.find(x => x.path === 'PostForm.jsx').scenes, 1);
+});
+
+test('🧹 노이즈 커밋 안의 삭제도 ♻️ 감지에 반영된다 (B2)', () => {
+  const many = Array.from({ length: 11 }, (_, i) => f(`gen/${i}.js`, 'D'));
+  const day = buildDay({
+    date: '2026-08-07', notes: [], config: CONFIG,
+    commits: [
+      c('s1', '09:20', [...many, f('a.js', 'D')]), // 대량 삭제(노이즈)에 a.js 삭제 포함
+      c('s2', '09:40', [f('a.js', 'A')])           // 갈아엎고 재생성
+    ]
+  });
+  const scene = day.chapters.flatMap(ch => ch.items).find(i => i.type === 'scene');
+  assert.strictEqual(scene.icon, '♻️');
+  assert.strictEqual(scene.reworkSha, 's1');
+});
+
 test('noiseThreshold 이상 파일을 건드린 커밋은 🧹로 뭉친다', () => {
   const many = Array.from({ length: 12 }, (_, i) => f(`gen/${i}.js`, 'A'));
   const day = buildDay({
