@@ -3,7 +3,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const { parseNameStatusLog, parseNumstat, normalizeNumstatPath,
-        parseSignatures, parseDaysList } = require('../lib/git');
+        parseSignatures, parseDaysList, firstChangedLine } = require('../lib/git');
 
 test('parseNameStatusLog: 커밋·파일·상태·rename oldPath', () => {
   const out = [
@@ -60,4 +60,31 @@ test('parseDaysList: 중복 제거·최신순·limit — 커밋 수 상한 없�
     .concat(['2026-07-31']).join('\n');
   const days = parseDaysList(out, 365);
   assert.deepStrictEqual(days, ['2026-08-01', '2026-08-02', '2026-08-03', '2026-07-31']);
+});
+
+test('firstChangedLine: 문맥 줄을 지나 첫 +줄의 새 파일 줄 번호', () => {
+  const diff = [
+    'diff --git a/src/App.jsx b/src/App.jsx',
+    '--- a/src/App.jsx', '+++ b/src/App.jsx',
+    '@@ -3,6 +3,7 @@ function App() {',
+    ' ctx1', ' ctx2', ' ctx3',
+    '+  const [x, setX] = useState(0);',
+    ' ctx4'
+  ].join('\n');
+  assert.strictEqual(firstChangedLine(diff), 6); // 시작 3 + 문맥 3줄
+});
+
+test('firstChangedLine: 삭제만 있는 hunk는 그 자리의 현재 줄', () => {
+  const diff = [
+    '@@ -10,4 +10,2 @@',
+    ' keep1',
+    '-gone1', '-gone2',
+    ' keep2'
+  ].join('\n');
+  assert.strictEqual(firstChangedLine(diff), 11);
+});
+
+test('firstChangedLine: hunk 없음(합성 전문 diff 등)=0', () => {
+  assert.strictEqual(firstChangedLine('+line1\n+line2'), 0);
+  assert.strictEqual(firstChangedLine(''), 0);
 });

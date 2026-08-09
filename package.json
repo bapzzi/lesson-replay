@@ -2,7 +2,7 @@
   "name": "lesson-replay",
   "displayName": "수업 리플레이 (Lesson Replay)",
   "description": "오늘 수업에서 코딩한 과정을 자동으로 기록했다가, 하루 끝에 시간 순서대로 되돌려 보고 TIL 초안 재료까지 뽑아주는 확장. 계정·서버·설정 없음 — 코드를 저장만 하면 됩니다. 필기를 곁들이면 그 시각의 코드 사이에 교차 표시됩니다.",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "publisher": "bapzzi",
   "license": "MIT",
   "icon": "icon.png",

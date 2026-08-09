@@ -4,7 +4,7 @@
 const vscode = require('vscode');
 const fs = require('fs');
 const path = require('path');
-const { git, isRepo, commitsForDate, recentDays, sceneDiff, showFile, attachSceneSigs } = require('./lib/git');
+const { git, isRepo, commitsForDate, recentDays, sceneDiff, showFile, attachSceneSigs, firstChangedLine } = require('./lib/git');
 const { buildDay } = require('./lib/model');
 const { render } = require('./lib/storyHtml');
 const { buildExportMd } = require('./lib/exportMd');
@@ -160,7 +160,17 @@ async function onWebviewMessage(msg) {
     const p = path.isAbsolute(msg.path) ? msg.path : path.join(repo, msg.path);
     try {
       const doc = await vscode.workspace.openTextDocument(p);
-      vscode.window.showTextDocument(doc, { viewColumn: vscode.ViewColumn.Beside, preview: true });
+      // 씬에서 열면 그 씬의 첫 변경 줄로 커서 — 파일 맨 위가 아니라 복기하던 위치가 보이게
+      let selection;
+      if (msg.scene && msg.scene.lastSha) {
+        const s = msg.scene;
+        const line = firstChangedLine(await sceneDiff(repo, s.reworkSha || s.firstSha, s.lastSha, s.file));
+        if (line > 0) {
+          const l = Math.min(line, doc.lineCount) - 1; // 이후 편집으로 줄이 줄었어도 범위 안으로
+          selection = new vscode.Range(l, 0, l, 0);
+        }
+      }
+      vscode.window.showTextDocument(doc, { viewColumn: vscode.ViewColumn.Beside, preview: true, selection });
     } catch {
       vscode.window.showWarningMessage(`파일을 찾을 수 없습니다: ${msg.path} (삭제됐거나 이름이 바뀐 파일일 수 있습니다)`);
     }
