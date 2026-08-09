@@ -2,7 +2,7 @@
   "name": "lesson-replay",
   "displayName": "수업 리플레이 (Lesson Replay)",
   "description": "오늘 수업에서 코딩한 과정을 자동으로 기록했다가, 하루 끝에 시간 순서대로 되돌려 보고 TIL 초안 재료까지 뽑아주는 확장. 계정·서버·설정 없음 — 코드를 저장만 하면 됩니다. 필기를 곁들이면 그 시각의 코드 사이에 교차 표시됩니다.",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "publisher": "bapzzi",
   "license": "MIT",
   "icon": "icon.png",
@@ -81,7 +81,7 @@
           {
             "id": "export",
             "title": "TIL 원자재로 내보내기",
-            "description": "하루치 기록(배운 것+필기+코드 diff)을 md 한 파일로 만듭니다. 통째로 AI에 붙여넣으면 TIL 초안이 나옵니다.\n[내보내기](command:lessonReplay.exportDay)",
+            "description": "하루치 기록(배운 것+필기+코드 diff)을 md 한 파일로 만듭니다. 통째로 AI에 붙여넣으면 TIL 초안이 나옵니다. AI 요청 프롬프트까지 담으려면 설정 includeTilPrompt를 켜세요.\n[내보내기](command:lessonReplay.exportDay)",
             "media": { "markdown": "media/step-export.md" },
             "completionEvents": ["onCommand:lessonReplay.exportDay"]
           }
@@ -112,11 +112,15 @@
           "type": "string", "default": "",
           "description": "필기·한 줄 정리 아카이브를 모아둘 폴더(절대경로, 예: C:\\수업아카이브). 비우면 실습 저장소 루트에 저장합니다. 지정하면 저장소가 여러 개여도 아카이브는 이 한곳에 쌓입니다. 단, 저장소 밖 폴더는 git 백업에서 빠집니다."
         },
+        "lessonReplay.includeTilPrompt": {
+          "type": "boolean", "default": false,
+          "description": "TIL 원자재 내보내기 파일 맨 위에 AI 요청 프롬프트를 함께 담습니다. 끄면(기본) 기록 원자재만 — 배운 것 메모·필기·코드 diff — 내보냅니다. 프롬프트 문구는 lessonReplay.tilPrompt에서 고칠 수 있습니다."
+        },
         "lessonReplay.tilPrompt": {
           "type": "string",
-          "default": "아래는 오늘 라이브 코딩 수업에서 내 편집기에 남은 자동 기록이다 — 파트별 '배운 것' 메모, 수업 중 필기(있는 경우), 파일별 코드 변경 이력(diff). 이걸 바탕으로 부트캠프 제출용 TIL 초안을 작성해줘.\n- 구성 5칸: ①한줄요약(TL;DR) ②배운 내용 — 핵심 개념 1~2개만 골라 깊게(전부 나열 금지) ③실습·결과 — 무엇을 어떤 순서로 만들었는지 ④문제와 해결 — 지웠다 다시 만든 흔적(♻️)·고친 흔적을 트러블슈팅으로: 문제/가설/원인/해결/재발 방지 ⑤다음에 할 일 2~3개\n- 코드는 달라진 부분만 짧게 인용하고 왜 그렇게 쓰는지 한 줄씩. 파일 전문 붙여넣기 금지\n- 필기가 있으면 그 표현을 살려 '나의 언어'로. 오탈자만 다듬고, AI 티 나는 문장·억지 마무리 금지\n- 필기 없이 diff만 있는 파트는 코드에서 배운 개념을 역으로 정리",
+          "default": "아래는 오늘 라이브 코딩 수업에서 내 편집기에 남은 자동 기록이다 — 파트별 '배운 것' 메모, 수업 중 필기(있는 경우), 파일별 코드 변경 이력(diff). 이걸 바탕으로 부트캠프 제출용 TIL 초안을 작성해줘.\n- 흐름 먼저: 시간순 나열이 아니라 '오늘 무엇을 만들려고 어떤 순서로 갔는가'를 한 줄로 세우고, 그 흐름 위에 개념을 얹는다\n- 전부 나열 금지: 핵심 개념 1~2개만 골라 깊게. 나머지는 한 줄 훑기로 끝낸다\n- 코드는 달라진 부분만 짧게 인용하고 왜 그렇게 쓰는지 한 줄씩. 파일 전문 붙여넣기 금지\n- 지웠다 다시 만든 흔적(♻️)·고친 흔적은 트러블슈팅으로: 문제/원인/해결/재발 방지\n- 필기가 있으면 그 표현을 살려 '나의 언어'로. 오탈자만 다듬고, AI 티 나는 문장·억지 마무리 금지\n- 쓸 내용이 없는 항목은 뺀다 — 칸을 채우려고 만든 문단 금지",
           "editPresentation": "multilineText",
-          "description": "TIL 원자재 내보내기 파일 맨 위에 담을 AI 요청 프롬프트. 내보낸 파일을 통째로 AI에게 붙여넣으면 이 프롬프트대로 TIL 초안을 받습니다. 자신의 TIL 스타일에 맞게 고쳐 쓰세요. 비우면 프롬프트 없이 원자재만 내보냅니다."
+          "description": "lessonReplay.includeTilPrompt를 켰을 때 내보내기 파일 맨 위에 담을 AI 요청 프롬프트. 내보낸 파일을 통째로 AI에게 붙여넣으면 이 프롬프트대로 TIL 초안을 받습니다. 자신의 TIL 스타일에 맞게 고쳐 쓰세요."
         },
         "lessonReplay.paragraphGapMinutes": {
           "type": "number", "default": 3,

@@ -37,7 +37,8 @@ function cfg() {
     notesDir: c.get('notesDir'),
     noiseThreshold: c.get('noiseThreshold'), excludePrefixes: c.get('excludePrefixes'),
     holidays: c.get('holidays') || [], archiveDir: (c.get('archiveDir') || '').trim(),
-    tilPrompt: c.get('tilPrompt') || '', paragraphGapMinutes: c.get('paragraphGapMinutes')
+    tilPrompt: c.get('tilPrompt') || '', includeTilPrompt: c.get('includeTilPrompt') === true,
+    paragraphGapMinutes: c.get('paragraphGapMinutes')
   };
 }
 
@@ -177,7 +178,8 @@ async function onWebviewMessage(msg) {
   }
 }
 
-// TIL 원자재 내보내기: 프롬프트+배운 것+필기+코드 diff 한 파일 → 아카이브 '복기/날짜-복기.md'
+// TIL 원자재 내보내기: 배운 것+필기+코드 diff 한 파일 → 아카이브 '복기/날짜-복기.md'
+// AI 프롬프트는 기본 미포함 — 설정 includeTilPrompt를 켠 사람만 맨 위에 담긴다
 async function exportDay(date) {
   date = date || notes.dateStr();
   const model = await buildModelFor(date, loadReviewNotes(date));
@@ -189,7 +191,7 @@ async function exportDay(date) {
     }
   }
   const md = buildExportMd(model, notes.loadSummaries(archiveRoot(), cfg().notesDir, date),
-    { prompt: cfg().tilPrompt });
+    { prompt: cfg().includeTilPrompt ? cfg().tilPrompt : '' });
   const dir = path.join(archiveRoot(), '복기');
   fs.mkdirSync(dir, { recursive: true });
   const p = path.join(dir, `${date}-복기.md`);
