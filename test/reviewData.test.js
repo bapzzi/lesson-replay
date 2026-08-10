@@ -23,6 +23,16 @@ test('seedFromTimeline: 3분 이내 연속 줄은 한 단락으로 뭉친다', (
   assert.strictEqual(n[1].text, '새 단락');
 });
 
+test('seedFromTimeline: 빈 줄로 나뉜 문단은 시각이 붙어 있어도 뭉치지 않는다 (F1)', () => {
+  const n = seedFromTimeline(
+    '[09:36] API 구조 설명\n[09:36] 이어지는 줄\n\n[09:38] 다른 주제\n\n[09:40] 또 다른 주제');
+  assert.strictEqual(n.length, 3);
+  assert.strictEqual(n[0].text, 'API 구조 설명\n이어지는 줄'); // 빈 줄 없는 연속은 그대로 뭉침
+  assert.strictEqual(n[1].text, '다른 주제');
+  assert.strictEqual(n[2].text, '또 다른 주제');
+  assert.strictEqual(n[2].time, '09:40'); // 시각은 그대로 유지
+});
+
 test('loadNotes: JSON 없으면 타임라인에서 시드해 저장, 이후엔 JSON이 단일원천', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'replay-'));
   const notes1 = loadNotes(root, '필기', '2026-08-07', '[09:12] 원본 필기');

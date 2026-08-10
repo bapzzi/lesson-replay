@@ -5,6 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { diffNewLines, isScaffoldLine, isBusinessDay, isClassHours, ensureScaffold,
+        dateStr, primeShadow, trackSave,
         lineSimilarity, splitEdits, rewriteTimeline } = require('../lib/notes');
 
 test('diffNewLines: 같은 문장을 두 번 적어도 두 번째가 새 줄로 잡힌다', () => {
@@ -64,6 +65,42 @@ test('ensureScaffold: 필기 폴더에 markdownlint 해제 파일을 함께 깐�
   fs.writeFileSync(cfg, '{"MD012": false}', 'utf8');
   ensureScaffold(repo, { notesDir: '필기', blocks: ['09:10-10:15'], holidays: [] }, true);
   assert.deepStrictEqual(JSON.parse(fs.readFileSync(cfg, 'utf8')), { MD012: false });
+  fs.rmSync(repo, { recursive: true, force: true });
+});
+
+test('trackSave: 필기의 빈 줄이 타임라인에도 문단 경계로 남는다 (F1)', () => {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'lr-tk-'));
+  const dir = path.join(repo, '필기');
+  fs.mkdirSync(dir, { recursive: true });
+  const date = dateStr();
+  const p = path.join(dir, `${date}.md`);
+  fs.writeFileSync(p, '## 파트1 (09:10~10:15)\n', 'utf8');
+  primeShadow(repo, '필기'); // 기준선
+
+  trackSave(repo, '필기', p, '## 파트1 (09:10~10:15)\n첫 주제\n이어지는 줄\n\n다른 주제\n');
+  const tl = fs.readFileSync(path.join(dir, `${date}-타임라인.md`), 'utf8').split('\n');
+  assert.ok(tl[0].endsWith('첫 주제'));
+  assert.ok(tl[1].endsWith('이어지는 줄'));
+  assert.strictEqual(tl[2], '');            // 빈 줄 = 문단 경계
+  assert.ok(tl[3].endsWith('다른 주제'));
+  fs.rmSync(repo, { recursive: true, force: true });
+});
+
+test('refreshPartHeadings: 시간표를 고치면 기존 틀의 파트 시각도 따라간다 (F4)', () => {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'lr-rh-'));
+  const cfg = { notesDir: '필기', blocks: ['09:10-10:15', '10:15-11:30'], holidays: [] };
+  const p = ensureScaffold(repo, cfg, true);
+  fs.appendFileSync(p, '내가 적은 필기\n', 'utf8');
+
+  ensureScaffold(repo, { ...cfg, blocks: ['09:10-10:15', '10:30-11:30'] }, true);
+  const after = fs.readFileSync(p, 'utf8');
+  assert.ok(after.includes('## 파트2 (10:30~11:30)'));
+  assert.ok(!after.includes('10:15~11:30'));
+  assert.ok(after.includes('내가 적은 필기')); // 본문은 보존
+
+  // 파트 수가 다르면 손대지 않는다
+  ensureScaffold(repo, { ...cfg, blocks: ['09:10-10:15'] }, true);
+  assert.ok(fs.readFileSync(p, 'utf8').includes('## 파트2 (10:30~11:30)'));
   fs.rmSync(repo, { recursive: true, force: true });
 });
 
