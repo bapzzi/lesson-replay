@@ -4,7 +4,7 @@ const assert = require('node:assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { diffNewLines, isScaffoldLine, isBusinessDay, ensureScaffold,
+const { diffNewLines, isScaffoldLine, isBusinessDay, isClassHours, ensureScaffold,
         lineSimilarity, splitEdits, rewriteTimeline } = require('../lib/notes');
 
 test('diffNewLines: 같은 문장을 두 번 적어도 두 번째가 새 줄로 잡힌다', () => {
@@ -65,6 +65,16 @@ test('ensureScaffold: 필기 폴더에 markdownlint 해제 파일을 함께 깐�
   ensureScaffold(repo, { notesDir: '필기', blocks: ['09:10-10:15'], holidays: [] }, true);
   assert.deepStrictEqual(JSON.parse(fs.readFileSync(cfg, 'utf8')), { MD012: false });
   fs.rmSync(repo, { recursive: true, force: true });
+});
+
+test('isClassHours: 첫 파트 시작~마지막 파트 끝 사이만 (기록 꺼짐 알림 조건)', () => {
+  const blocks = ['09:10-10:15', '13:00-13:45', '16:45-17:50'];
+  assert.strictEqual(isClassHours(blocks, new Date('2026-08-10T09:09:00')), false); // 시작 직전
+  assert.strictEqual(isClassHours(blocks, new Date('2026-08-10T09:10:00')), true);
+  assert.strictEqual(isClassHours(blocks, new Date('2026-08-10T12:00:00')), true);  // 파트 사이 쉬는 시간도 수업 중
+  assert.strictEqual(isClassHours(blocks, new Date('2026-08-10T17:50:00')), true);
+  assert.strictEqual(isClassHours(blocks, new Date('2026-08-10T17:51:00')), false); // 종료 후
+  assert.strictEqual(isClassHours([], new Date('2026-08-10T10:00:00')), false);     // 시간표 없음 = 침묵
 });
 
 test('isBusinessDay: 주말·휴일 제외', () => {

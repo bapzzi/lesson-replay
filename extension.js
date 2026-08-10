@@ -82,6 +82,24 @@ function prepareNotes() {
   notes.primeShadow(archiveRoot(), cfg().notesDir);
 }
 
+// 기록 켜는 걸 잊고 수업을 시작하는 사고 방지 — 하루 1회, 아래 4조건이 모두 맞을 때만.
+// ① 이 폴더에서 기록을 켜고 끈 이력이 있다(= 수업 폴더). 다뤄 본 적 없는 폴더에선 영원히 안 뜬다
+// ② 지금 꺼져 있다  ③ 영업일  ④ 수업 시간대(첫 파트~마지막 파트)
+function nudgeKey() { return `nudged:${repoTop || ''}`; }
+async function maybeNudgeRecording() {
+  if (!repoTop || isRecording()) return;
+  if (extCtx.globalState.get(recKey()) === undefined) return;
+  if (!notes.isBusinessDay(new Date(), cfg().holidays)) return;
+  if (!notes.isClassHours(cfg().blocks)) return;
+  const today = notes.dateStr();
+  if (extCtx.globalState.get(nudgeKey()) === today) return;
+  await extCtx.globalState.update(nudgeKey(), today); // 먼저 찍어 하루 1회 보장
+  const pick = await vscode.window.showWarningMessage(
+    '수업 리플레이: 수업 시간인데 기록이 꺼져 있습니다. 지금 켜면 이후 저장부터 스냅샷이 남습니다.',
+    '기록 켜기', '오늘은 그만');
+  if (pick === '기록 켜기') toggleRecord();
+}
+
 function updateStatusBar() {
   if (!statusItem) return;
   if (!repoTop) { statusItem.hide(); return; }
@@ -288,9 +306,13 @@ async function activate(context) {
   migrateLegacySetting();
   firstRunWelcome();
 
-  // 영업일 아침 필기 틀 — 기록이 켜진 폴더에서만, 시작 직후·10분마다 확인
-  prepareNotes();
-  const scaffoldTimer = setInterval(prepareNotes, 10 * 60 * 1000);
+  // 조용한 중단(업데이트·크래시) 사이에 쌓인 변경 회수 — 켜지자마자 1회
+  recorder.recoverPending();
+
+  // 영업일 아침 필기 틀 + 기록 꺼짐 알림 — 시작 직후·10분마다 확인
+  const tick = () => { prepareNotes(); maybeNudgeRecording(); };
+  tick();
+  const scaffoldTimer = setInterval(tick, 10 * 60 * 1000);
   context.subscriptions.push({ dispose: () => clearInterval(scaffoldTimer) });
 
   context.subscriptions.push(
