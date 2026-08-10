@@ -4,7 +4,7 @@ const assert = require('node:assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { diffNewLines, isScaffoldLine, isBusinessDay,
+const { diffNewLines, isScaffoldLine, isBusinessDay, ensureScaffold,
         lineSimilarity, splitEdits, rewriteTimeline } = require('../lib/notes');
 
 test('diffNewLines: 같은 문장을 두 번 적어도 두 번째가 새 줄로 잡힌다', () => {
@@ -52,6 +52,19 @@ test('rewriteTimeline: 편집된 줄은 원 시각을 유지한 채 제자리 �
   // 타임라인에 없는 편집(붙여넣기 등)은 새 줄로 돌려준다
   assert.deepStrictEqual(rewriteTimeline(p, [{ from: '없는 줄', to: '없는 줄 수정' }]), ['없는 줄 수정']);
   fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('ensureScaffold: 필기 폴더에 markdownlint 해제 파일을 함께 깐다 (자유 서술 경고 방지)', () => {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'lr-sc-'));
+  const p = ensureScaffold(repo, { notesDir: '필기', blocks: ['09:10-10:15'], holidays: [] }, true);
+  const cfg = path.join(repo, '필기', '.markdownlint.json');
+  assert.ok(fs.existsSync(p));
+  assert.deepStrictEqual(JSON.parse(fs.readFileSync(cfg, 'utf8')), { default: false });
+  // 사용자가 고친 설정은 덮어쓰지 않는다 (틀이 이미 있는 날에도 마찬가지)
+  fs.writeFileSync(cfg, '{"MD012": false}', 'utf8');
+  ensureScaffold(repo, { notesDir: '필기', blocks: ['09:10-10:15'], holidays: [] }, true);
+  assert.deepStrictEqual(JSON.parse(fs.readFileSync(cfg, 'utf8')), { MD012: false });
+  fs.rmSync(repo, { recursive: true, force: true });
 });
 
 test('isBusinessDay: 주말·휴일 제외', () => {
