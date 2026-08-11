@@ -253,6 +253,9 @@ async function toggleRecord() {
     '켜기', '취소');
   if (ok !== '켜기') return;
   await setRecording(true);
+  // 기록을 켜기 전에 쌓여 있던 변경을 먼저 회수 — 안 그러면 어제 마지막 수정이
+  // 오늘 첫 필기 저장에 휩쓸려 "오늘 짠 코드"로 둔갑한다 (복구 커밋은 라벨로 구분됨)
+  await recorder.recoverPending();
   prepareNotes();
   treeProvider.refresh();
 }
@@ -284,7 +287,8 @@ async function activate(context) {
   statusItem.command = 'lessonReplay.toggleRecord';
   context.subscriptions.push(statusItem);
 
-  recorder = createRecorder({ vscode, out, statusItem, repoRoot, isRecording, cfg, timeStr: notes.timeStr });
+  recorder = createRecorder({ vscode, out, statusItem, repoRoot, isRecording, cfg, timeStr: notes.timeStr,
+    onCommitted: () => { if (treeProvider) treeProvider.refresh(); } });
   guards = createGuards({ vscode, out, globalState: context.globalState });
   treeProvider = createDaysProvider({
     vscode, cfg, buildModelFor, recentDays,

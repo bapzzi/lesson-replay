@@ -86,6 +86,47 @@ test('trackSave: 필기의 빈 줄이 타임라인에도 문단 경계로 남는
   fs.rmSync(repo, { recursive: true, force: true });
 });
 
+test('trackSave: 줄 끝 공백이 있어도 이어 쓴 줄이 계단식으로 쌓이지 않는다 (F7)', () => {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'lr-tr-'));
+  const dir = path.join(repo, '필기');
+  fs.mkdirSync(dir, { recursive: true });
+  const date = dateStr();
+  const p = path.join(dir, `${date}.md`);
+  const head = '## 파트1 (09:10~10:15)\n';
+  fs.writeFileSync(p, head, 'utf8');
+  primeShadow(repo, '필기');
+
+  // 쉼표 뒤 스페이스를 치고 잠깐 멈추면 그 상태로 자동 저장된다 — 실제 사용 패턴
+  trackSave(repo, '필기', p, `${head}H/W `);
+  trackSave(repo, '필기', p, `${head}H/W, OS, JVM, `);
+  trackSave(repo, '필기', p, `${head}H/W, OS, JVM, lib, APP.`);
+
+  const tl = fs.readFileSync(path.join(dir, `${date}-타임라인.md`), 'utf8').trimEnd().split('\n');
+  assert.strictEqual(tl.length, 1);          // 중간 버전이 쌓이지 않는다
+  assert.ok(tl[0].endsWith('H/W, OS, JVM, lib, APP.'));
+  fs.rmSync(repo, { recursive: true, force: true });
+});
+
+test('trackSave: 문단을 나눠 저장해도 빈 줄 경계가 남는다 (F8)', () => {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'lr-tp-'));
+  const dir = path.join(repo, '필기');
+  fs.mkdirSync(dir, { recursive: true });
+  const date = dateStr();
+  const p = path.join(dir, `${date}.md`);
+  const head = '## 파트1 (09:10~10:15)\n';
+  fs.writeFileSync(p, head, 'utf8');
+  primeShadow(repo, '필기');
+
+  trackSave(repo, '필기', p, `${head}첫 주제\n`);          // 저장 1
+  trackSave(repo, '필기', p, `${head}첫 주제\n\n다른 주제\n`); // 저장 2 — 빈 줄로 나눈 새 문단
+
+  const tl = fs.readFileSync(path.join(dir, `${date}-타임라인.md`), 'utf8').trimEnd().split('\n');
+  assert.ok(tl[0].endsWith('첫 주제'));
+  assert.strictEqual(tl[1], '');             // 저장이 나뉘어도 문단 경계가 살아남는다
+  assert.ok(tl[2].endsWith('다른 주제'));
+  fs.rmSync(repo, { recursive: true, force: true });
+});
+
 test('refreshPartHeadings: 시간표를 고치면 기존 틀의 파트 시각도 따라간다 (F4)', () => {
   const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'lr-rh-'));
   const cfg = { notesDir: '필기', blocks: ['09:10-10:15', '10:15-11:30'], holidays: [] };
