@@ -137,7 +137,8 @@ async function buildModelFor(date, reviewNotes) {
     return null;
   }
   const commits = await commitsForDate(repo, date);
-  return buildDay({ date, commits, notes: reviewNotes || [], config: cfg() });
+  const sceneOps = reviewData.loadSceneOps(archiveRoot(), cfg().notesDir, date);
+  return buildDay({ date, commits, notes: reviewNotes || [], config: { ...cfg(), sceneOps } });
 }
 
 async function openStory(date) {
@@ -172,6 +173,14 @@ async function onWebviewMessage(msg) {
   } else if (msg.cmd === 'toggleMark' && msg.key) {
     reviewData.toggleMark(archiveRoot(), cfg().notesDir, msg.date, msg.key);
     treeProvider.refresh(); // 사이드바 "다시 볼 것" 큐 갱신
+  } else if (msg.cmd === 'setSceneOp' && msg.key) {
+    reviewData.setSceneOp(archiveRoot(), cfg().notesDir, msg.date, msg.key, msg.op);
+    await openStory(msg.date); // 배치가 바뀌므로 다시 그린다
+    treeProvider.refresh();
+  } else if (msg.cmd === 'clearSceneOps') {
+    reviewData.clearSceneOps(archiveRoot(), cfg().notesDir, msg.date, msg.op);
+    await openStory(msg.date);
+    treeProvider.refresh();
   } else if (msg.cmd === 'openFile') {
     const p = path.isAbsolute(msg.path) ? msg.path : path.join(repo, msg.path);
     try {

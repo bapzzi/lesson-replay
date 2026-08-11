@@ -142,6 +142,39 @@ test('씬 스탯: 커밋별 numstat(add/del)이 씬 단위로 누적된다', () 
   assert.deepStrictEqual({ add: scene.stat.add, del: scene.stat.del }, { add: 15, del: 3 });
 });
 
+test('씬 정리: hide는 복기·파일 목록에서 빠지고 hiddenCount로 남는다 (F11)', () => {
+  const base = {
+    date: '2026-08-07', notes: [],
+    commits: [c('s1', '09:20', [f('a.js', 'M')]), c('s2', '09:22', [f('b.js', 'M')])]
+  };
+  const before = buildDay({ ...base, config: CONFIG });
+  assert.strictEqual(before.sceneCount, 2);
+  assert.strictEqual(before.fileList.length, 2);
+
+  const day = buildDay({ ...base, config: { ...CONFIG, sceneOps: { 'a.js|09:20': 'hide' } } });
+  assert.strictEqual(day.sceneCount, 1);
+  assert.strictEqual(day.hiddenCount, 1);
+  assert.deepStrictEqual(day.fileList.map(x => x.path), ['b.js']); // 숨긴 씬뿐인 파일은 칩에서도 빠진다
+  const files = day.chapters.flatMap(ch => ch.items).filter(i => i.type === 'scene').map(i => i.file);
+  assert.deepStrictEqual(files, ['b.js']);
+});
+
+test('씬 정리: off는 파트에서 빠져 "시간 외 (직접 옮김)"으로 모인다 (F11)', () => {
+  const day = buildDay({
+    date: '2026-08-07', notes: [],
+    config: { ...CONFIG, sceneOps: { 'a.js|09:20': 'off' } },
+    commits: [c('s1', '09:20', [f('a.js', 'M')]), c('s2', '09:22', [f('b.js', 'M')])]
+  });
+  const part1 = day.chapters.find(ch => ch.label === '파트1');
+  assert.deepStrictEqual(part1.items.filter(i => i.type === 'scene').map(i => i.file), ['b.js']);
+  const moved = day.chapters.find(ch => ch.key === 'gap:moved');
+  assert.ok(moved && !moved.isPart);
+  assert.deepStrictEqual(moved.items.map(i => i.file), ['a.js']);
+  assert.strictEqual(day.sceneCount, 2);   // 숨긴 게 아니라 옮긴 것 — 개수는 그대로
+  assert.strictEqual(day.hiddenCount, 0);
+  assert.strictEqual(day.chapters[day.chapters.length - 1].key, 'gap:moved'); // 맨 뒤에 온다
+});
+
 test('드래그로 seq를 바꾸면 씬 사이 어디로든 배치된다 (소수 seq)', () => {
   const day = buildDay({
     date: '2026-08-07', config: CONFIG,

@@ -4,7 +4,27 @@ const assert = require('node:assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { seedFromTimeline, loadNotes, saveNotes, reviewNotesPath } = require('../lib/reviewData');
+const { seedFromTimeline, loadNotes, saveNotes, reviewNotesPath,
+        loadSceneOps, setSceneOp, clearSceneOps } = require('../lib/reviewData');
+
+test('sceneOps: 지정·토글 해제·일괄 되돌리기가 파일에 남는다 (F11)', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lr-ops-'));
+  const d = '2026-08-11';
+  assert.deepStrictEqual(loadSceneOps(root, '필기', d), {}); // 파일 없으면 빈 객체
+
+  setSceneOp(root, '필기', d, 'a.js|09:20', 'hide');
+  setSceneOp(root, '필기', d, 'b.js|09:22', 'off');
+  assert.deepStrictEqual(loadSceneOps(root, '필기', d),
+    { 'a.js|09:20': 'hide', 'b.js|09:22': 'off' });
+
+  setSceneOp(root, '필기', d, 'a.js|09:20', 'hide'); // 같은 값 = 해제
+  assert.deepStrictEqual(loadSceneOps(root, '필기', d), { 'b.js|09:22': 'off' });
+
+  setSceneOp(root, '필기', d, 'c.js|09:30', 'hide');
+  clearSceneOps(root, '필기', d, 'hide'); // 숨긴 것만 되돌리고 옮긴 것은 유지
+  assert.deepStrictEqual(loadSceneOps(root, '필기', d), { 'b.js|09:22': 'off' });
+  fs.rmSync(root, { recursive: true, force: true });
+});
 
 test('seedFromTimeline: [HH:mm] 줄 → seq(분) 부여', () => {
   const n = seedFromTimeline('[09:12] 첫 필기\n[10:20] 둘째');
