@@ -8,7 +8,7 @@ const { git, isRepo, commitsForDate, recentDays, sceneDiff, showFile, attachScen
 const { buildDay } = require('./lib/model');
 const { render } = require('./lib/storyHtml');
 const { buildExportMd } = require('./lib/exportMd');
-const { createRecorder } = require('./lib/recorder');
+const { createRecorder, isIgnoredWatchPath } = require('./lib/recorder');
 const { createDaysProvider } = require('./lib/daysTree');
 const notes = require('./lib/notes');
 const reviewData = require('./lib/reviewData');
@@ -38,7 +38,8 @@ function cfg() {
     noiseThreshold: c.get('noiseThreshold'), excludePrefixes: c.get('excludePrefixes'),
     holidays: c.get('holidays') || [], archiveDir: (c.get('archiveDir') || '').trim(),
     tilPrompt: c.get('tilPrompt') || '', includeTilPrompt: c.get('includeTilPrompt') === true,
-    paragraphGapMinutes: c.get('paragraphGapMinutes')
+    paragraphGapMinutes: c.get('paragraphGapMinutes'),
+    watchFileChanges: c.get('watchFileChanges') !== false
   };
 }
 
@@ -327,6 +328,18 @@ async function activate(context) {
   tick();
   const scaffoldTimer = setInterval(tick, 10 * 60 * 1000);
   context.subscriptions.push({ dispose: () => clearInterval(scaffoldTimer) });
+
+  // 편집기 밖에서 바뀐 파일도 스냅샷 대상 — DB 툴(Workbench 등)·외부 에디터·터미널로 고친 파일은
+  // onDidSaveTextDocument가 오지 않아 통째로 누락됐다(SQL 실습에서 실제 발생). 커밋 자체는 기존과
+  // 동일하게 add -A 한 번이고, 여기서는 디바운스 타이머만 깨운다.
+  const watcher = vscode.workspace.createFileSystemWatcher('**/*');
+  const onFsEvent = (uri) => {
+    if (!cfg().watchFileChanges) return;
+    if (isIgnoredWatchPath(uri.fsPath)) return;
+    recorder.scheduleCommit(); // 기록 꺼짐·repo 아님은 scheduleCommit 안에서 걸러진다
+  };
+  context.subscriptions.push(watcher,
+    watcher.onDidCreate(onFsEvent), watcher.onDidChange(onFsEvent), watcher.onDidDelete(onFsEvent));
 
   context.subscriptions.push(
     vscode.commands.registerCommand('lessonReplay.openStory', (d) => openStory(d || notes.dateStr())),
