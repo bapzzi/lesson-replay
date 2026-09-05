@@ -1,5 +1,11 @@
 # 수업 리플레이 (Lesson Replay)
 
+[![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/bapzzi.lesson-replay?label=VS%20Marketplace&color=007ACC)](https://marketplace.visualstudio.com/items?itemName=bapzzi.lesson-replay)
+[![Installs](https://img.shields.io/visual-studio-marketplace/i/bapzzi.lesson-replay?color=success)](https://marketplace.visualstudio.com/items?itemName=bapzzi.lesson-replay)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+**▶ 설치: [VS Code 마켓플레이스](https://marketplace.visualstudio.com/items?itemName=bapzzi.lesson-replay)**
+
 라이브 코딩 수업에서 **오늘 무엇을 어떤 순서로 만들었는지** 자동 기록하고, 하루를 타임라인으로 복기하는 VS Code 확장.
 
 - 저장(`Ctrl+S`)할 때마다 스냅샷 자동 기록 — 수업 중 할 일 없음
