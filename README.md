@@ -1,5 +1,7 @@
 # 수업 리플레이 (Lesson Replay)
 
+[![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/bapzzi.lesson-replay?label=VS%20Marketplace&color=007ACC)](https://marketplace.visualstudio.com/items?itemName=bapzzi.lesson-replay)
+
 ## 목적
 라이브 코딩 수업의 저장 시점을 자동 기록해 하루를 타임라인으로 복기하는 VS Code 확장(마켓플레이스 배포, bapzzi/lesson-replay).
 
@@ -9,7 +11,6 @@ v1.4.0(package.json). 마지막 커밋 2026-09-09. 캠프 수업에서 매일 �
 ## 다음 할 일
 - 사용 중 나온 불편만 이슈로 받아 수리. 신규 기능 계획 없음.
 
-[![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/bapzzi.lesson-replay?label=VS%20Marketplace&color=007ACC)](https://marketplace.visualstudio.com/items?itemName=bapzzi.lesson-replay)
 [![Installs](https://img.shields.io/visual-studio-marketplace/i/bapzzi.lesson-replay?color=success)](https://marketplace.visualstudio.com/items?itemName=bapzzi.lesson-replay)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
