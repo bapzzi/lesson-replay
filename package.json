@@ -103,6 +103,10 @@
           "type": "boolean", "default": true,
           "description": "편집기 밖에서 바뀐 파일도 감지합니다 (DB 툴·다른 에디터·터미널로 고친 파일). 끄면 VS Code에서 저장(Ctrl+S)할 때만 스냅샷이 남습니다."
         },
+        "lessonReplay.watchRepoRoot": {
+          "type": "boolean", "default": true,
+          "description": "VS Code가 연 폴더와 무관하게 git 저장소 루트 전체를 감시합니다. IntelliJ 같은 다른 IDE로 코딩하고 VS Code는 필기 폴더만 열어 둘 때 필요합니다. 끄면 VS Code가 연 폴더 안의 변경만 스냅샷을 깨웁니다."
+        },
         "lessonReplay.blocks": {
           "type": "array", "items": { "type": "string" },
           "default": ["09:10-10:20", "10:30-11:30", "13:00-13:45", "14:00-14:45", "15:15-16:00", "16:15-16:45", "16:45-17:50"],

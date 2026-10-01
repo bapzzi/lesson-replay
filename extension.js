@@ -13,9 +13,11 @@ const { createDaysProvider } = require('./lib/daysTree');
 const notes = require('./lib/notes');
 const reviewData = require('./lib/reviewData');
 const { createGuards } = require('./lib/guards');
+const { watchRepoTree } = require('./lib/repoWatch');
 
 let statusItem, panel, treeProvider, out, extCtx, recorder, guards;
 let repoTop = null, repoIsGit = false;
+let repoWatcher = null; // 저장소 루트 직접 감시 (VS Code가 연 폴더와 무관)
 
 async function resolveRepo() {
   const f = vscode.workspace.workspaceFolders;
@@ -25,10 +27,20 @@ async function resolveRepo() {
     if (r.ok && r.out.trim()) { repoTop = r.out.trim(); repoIsGit = true; }
     else { repoTop = f[0].uri.fsPath; repoIsGit = false; }
   }
+  restartRepoWatch();
   updateStatusBar();
   if (treeProvider) treeProvider.refresh();
 }
 function repoRoot() { return repoTop; }
+
+// 저장소 루트를 직접 감시해 IntelliJ 등 외부 에디터의 저장도 스냅샷을 깨운다 — VS Code는 필기 폴더만
+// 열어도 되므로 Java 프로젝트를 열어 생기는 언어서버 폭주를 피한다. watchRepoRoot=false로 끈다.
+function restartRepoWatch() {
+  if (repoWatcher) { repoWatcher.close(); repoWatcher = null; }
+  if (!repoIsGit || !repoTop || !cfg().watchRepoRoot || !cfg().watchFileChanges) return;
+  repoWatcher = watchRepoTree(repoTop, () => { if (recorder) recorder.scheduleCommit(); },
+    (m) => { if (out) out.appendLine(m); });
+}
 
 function cfg() {
   const c = vscode.workspace.getConfiguration('lessonReplay');
@@ -39,7 +51,8 @@ function cfg() {
     holidays: c.get('holidays') || [], archiveDir: (c.get('archiveDir') || '').trim(),
     tilPrompt: c.get('tilPrompt') || '', includeTilPrompt: c.get('includeTilPrompt') === true,
     paragraphGapMinutes: c.get('paragraphGapMinutes'),
-    watchFileChanges: c.get('watchFileChanges') !== false
+    watchFileChanges: c.get('watchFileChanges') !== false,
+    watchRepoRoot: c.get('watchRepoRoot') !== false
   };
 }
 
@@ -385,6 +398,7 @@ async function activate(context) {
 }
 
 function deactivate() {
+  if (repoWatcher) { repoWatcher.close(); repoWatcher = null; }
   if (recorder) recorder.flushSync();
 }
 
