@@ -4,10 +4,9 @@
 const vscode = require('vscode');
 const fs = require('fs');
 const path = require('path');
-const { git, isRepo, commitsForDate, recentDays, sceneDiff, showFile, attachSceneSigs, firstChangedLine } = require('./lib/git');
-const { buildDay } = require('./lib/model');
+const { git, isRepo, recentDays, sceneDiff, showFile, snapshotTarget, attachSceneSigs, firstChangedLine } = require('./lib/git');
 const { render } = require('./lib/storyHtml');
-const { buildExportMd } = require('./lib/exportMd');
+const exportLib = require('./lib/exportDay');
 const { createRecorder, isIgnoredWatchPath } = require('./lib/recorder');
 const { createDaysProvider } = require('./lib/daysTree');
 const notes = require('./lib/notes');
@@ -42,6 +41,20 @@ function restartRepoWatch() {
     (m) => { if (out) out.appendLine(m); });
 }
 
+// 필기 폴더 감시: IntelliJ 등에서 저장한 필기도 [HH:mm] 시각이 남게 한다(onDidSaveTextDocument는
+// VS Code 저장만 온다). 폴더는 틀이 생긴 뒤에야 있으므로 10분 tick마다 다시 시도한다
+let notesWatcher = null;
+function ensureNotesWatch() {
+  const root = repoTop ? archiveRoot() : null;
+  const dir = root ? path.join(root, cfg().notesDir) : null;
+  if (notesWatcher && notesWatcher.dir === dir) return;
+  if (notesWatcher) { notesWatcher.close(); notesWatcher = null; }
+  if (!dir || !fs.existsSync(dir)) return;
+  notesWatcher = notes.watchNotesDir(dir, (p) => {
+    if (repoRoot() && isRecording()) notes.trackFile(archiveRoot(), cfg().notesDir, p);
+  }, (m) => { if (out) out.appendLine(m); });
+}
+
 function cfg() {
   const c = vscode.workspace.getConfiguration('lessonReplay');
   return {
@@ -74,7 +87,7 @@ async function migrateLegacySetting() {
 }
 
 // 필기·한 줄 정리가 쌓이는 곳: archiveDir 설정이 있으면 그 폴더, 없으면 실습 repo 루트
-let warnedArchiveDir = false; // 폴백을 조용히 넘기지 않는다 — 세션당 1회 알림
+let warnedArchiveDir = false; // 폴백을 조용히 넘기지 않는다. 세션당 1회 알림
 function archiveRoot() {
   const a = cfg().archiveDir;
   if (a) {
@@ -83,7 +96,7 @@ function archiveRoot() {
       if (!warnedArchiveDir) {
         warnedArchiveDir = true;
         vscode.window.showWarningMessage(
-          `아카이브 폴더를 쓸 수 없어 필기를 실습 저장소에 저장합니다: ${a} — 설정(lessonReplay.archiveDir)을 확인해 주세요.`);
+          `아카이브 폴더를 쓸 수 없어 필기를 실습 저장소에 저장합니다: ${a}. 설정(lessonReplay.archiveDir)을 확인해 주세요.`);
       }
     }
   }
@@ -119,7 +132,7 @@ function updateStatusBar() {
   if (!repoTop) { statusItem.hide(); return; }
   if (recorder && recorder.state.failed && isRecording()) { statusItem.show(); return; } // 실패 표시 유지
   if (isRecording() && !repoIsGit) {
-    statusItem.text = '$(warning) 기록 불가 — git 저장소 아님';
+    statusItem.text = '$(warning) 기록 불가: git 저장소 아님';
     statusItem.tooltip = '이 폴더는 git 저장소가 아니라 스냅샷을 남길 수 없습니다. 클릭해서 안내를 보세요.';
     statusItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
   } else if (isRecording()) {
@@ -135,31 +148,25 @@ function updateStatusBar() {
 }
 
 // ---------- 복기 스토리 뷰 ----------
-// 복기노트: 첫 열람 때 타임라인 md에서 시드 → 이후 날짜별 JSON이 단일원천
-function loadReviewNotes(date) {
-  const c = cfg();
-  let timelineText = '';
-  try { timelineText = fs.readFileSync(notes.timelinePath(archiveRoot(), c.notesDir, date), 'utf8'); }
-  catch { /* 필기 없음 — 선택 사항 */ }
-  return reviewData.loadNotes(archiveRoot(), c.notesDir, date, timelineText, c.paragraphGapMinutes);
+function loadReviewNotes(date) { return exportLib.loadReviewNotes(archiveRoot(), cfg(), date); }
+
+async function requireRepo() {
+  const repo = repoRoot();
+  if (repo && (await isRepo(repo))) return repo;
+  vscode.window.showWarningMessage('열려 있는 폴더가 git 저장소가 아닙니다. 사이드바 "수업 리플레이"에서 저장소를 먼저 만들어 주세요.');
+  return null;
 }
 
 async function buildModelFor(date, reviewNotes) {
-  const repo = repoRoot();
-  if (!repo || !(await isRepo(repo))) {
-    vscode.window.showWarningMessage('열려 있는 폴더가 git 저장소가 아닙니다. 사이드바 "수업 리플레이"에서 저장소를 먼저 만들어 주세요.');
-    return null;
-  }
-  const commits = await commitsForDate(repo, date);
-  const sceneOps = reviewData.loadSceneOps(archiveRoot(), cfg().notesDir, date);
-  return buildDay({ date, commits, notes: reviewNotes || [], config: { ...cfg(), sceneOps } });
+  const repo = await requireRepo();
+  return repo ? exportLib.buildModel(repo, archiveRoot(), cfg(), date, reviewNotes) : null;
 }
 
 async function openStory(date) {
   const reviewNotes = loadReviewNotes(date);
   const model = await buildModelFor(date, reviewNotes);
   if (!model) return;
-  await attachSceneSigs(repoRoot(), date, model.chapters); // 시그니처 일괄(git log -p 1회) — +n/−n은 numstat에서 이미 옴
+  await attachSceneSigs(repoRoot(), date, model.chapters); // 시그니처 일괄(git log -p 1회). +n/−n은 numstat에서 이미 옴
   const days = await recentDays(repoRoot(), 365);
   const i = days.indexOf(date);
   const nav = { prev: i >= 0 ? days[i + 1] : days[0], next: i > 0 ? days[i - 1] : null };
@@ -223,6 +230,15 @@ async function onWebviewMessage(msg) {
       const doc = await vscode.workspace.openTextDocument(uri);
       vscode.window.showTextDocument(doc, { viewColumn: vscode.ViewColumn.Beside, preview: true });
     } catch { /* 스냅샷에 없음 */ }
+  } else if (msg.cmd === 'openDiff' && msg.scene) {
+    // VS Code 기본 diff 편집기: 이 구간 직전 판 ↔ 구간 마지막 판(복기 화면 diff와 같은 범위)
+    const s = msg.scene;
+    const ext = path.extname(s.file);
+    const base = path.basename(s.file, ext);
+    const doc = (sha, tag) => vscode.Uri.from({ scheme: 'lesson-replay', path: `/${sha}/${base}@${tag}${ext}`, query: s.file });
+    await vscode.commands.executeCommand('vscode.diff',
+      doc(`${s.reworkSha || s.firstSha}^`, '이전'), doc(s.lastSha, (s.end || '').replace(':', '')),
+      `${base}${ext} ${s.start}~${s.end} 변경`, { viewColumn: vscode.ViewColumn.Beside, preview: true });
   } else if (msg.cmd === 'openDay') {
     openStory(msg.date);
   } else if (msg.cmd === 'export') {
@@ -236,30 +252,26 @@ async function onWebviewMessage(msg) {
 }
 
 // TIL 원자재 내보내기: 배운 것+필기+코드 diff 한 파일 → 아카이브 '복기/날짜-복기.md'
-// AI 프롬프트는 기본 미포함 — 설정 includeTilPrompt를 켠 사람만 맨 위에 담긴다
+// AI 프롬프트는 기본 미포함. 설정 includeTilPrompt를 켠 사람만 맨 위에 담긴다
 async function exportDay(date) {
   date = date || notes.dateStr();
-  const model = await buildModelFor(date, loadReviewNotes(date));
-  if (!model) return;
-  const repo = repoRoot();
-  for (const ch of model.chapters) {
-    for (const it of ch.items) {
-      // ♻️ 씬은 화면과 동일하게 "지우기 전 판 ↔ 새 판" 비교 — new file diff만 나가던 결손 수정
-      if (it.type === 'scene') it.diffText = await sceneDiff(repo, it.reworkSha || it.firstSha, it.lastSha, it.file);
-    }
-  }
-  const md = buildExportMd(model, notes.loadSummaries(archiveRoot(), cfg().notesDir, date),
-    { prompt: cfg().includeTilPrompt ? cfg().tilPrompt : '' });
-  const dir = path.join(archiveRoot(), '복기');
-  fs.mkdirSync(dir, { recursive: true });
-  const p = path.join(dir, `${date}-복기.md`);
-  fs.writeFileSync(p, md, 'utf8');
+  const repo = await requireRepo();
+  if (!repo) return;
+  const p = await exportLib.exportDayToFile(repo, archiveRoot(), cfg(), date);
   const doc = await vscode.workspace.openTextDocument(p);
   vscode.window.showTextDocument(doc, { viewColumn: vscode.ViewColumn.Beside });
 }
 
 // ---------- 명령 ----------
+// 연타 방지(B1): 켜는 동안의 재진입이 recoverPending을 겹쳐 돌려 index.lock 충돌을 스스로 만들었다(09-09)
+let toggling = false;
 async function toggleRecord() {
+  if (toggling) { vscode.window.setStatusBarMessage('수업 리플레이: 기록 상태를 바꾸는 중입니다', 3000); return; }
+  toggling = true;
+  try { await toggleRecordInner(); } finally { toggling = false; }
+}
+
+async function toggleRecordInner() {
   if (!repoTop) { vscode.window.showWarningMessage('수업 실습 폴더를 먼저 열어 주세요.'); return; }
   if (isRecording()) { await setRecording(false); return; }
   if (!repoIsGit) {
@@ -276,10 +288,22 @@ async function toggleRecord() {
     '켜기', '취소');
   if (ok !== '켜기') return;
   await setRecording(true);
-  // 기록을 켜기 전에 쌓여 있던 변경을 먼저 회수 — 안 그러면 어제 마지막 수정이
-  // 오늘 첫 필기 저장에 휩쓸려 "오늘 짠 코드"로 둔갑한다 (복구 커밋은 라벨로 구분됨)
-  await recorder.recoverPending();
+  // 기록을 켜기 전에 쌓여 있던 변경을 먼저 회수한다. 안 그러면 어제 마지막 수정이
+  // 오늘 첫 필기 저장에 휩쓸려 "오늘 짠 코드"로 둔갑한다 (복구 커밋은 라벨로 구분됨).
+  // 수 초~수십 초 걸릴 수 있어 진행 표시를 띄운다(B2). 실패하면 꺼짐으로 되돌린다(B3)
+  const r = await vscode.window.withProgress(
+    { location: vscode.ProgressLocation.Notification, title: '수업 리플레이: 기록 켜는 중' },
+    () => recorder.recoverPending(true));
+  if (!r.ok) {
+    await setRecording(false);
+    const pick = await vscode.window.showErrorMessage(
+      `수업 리플레이: 기록을 켜지 못했습니다. ${r.why.label}`, '다시 시도', '로그 보기');
+    if (pick === '로그 보기') out.show();
+    if (pick === '다시 시도') setTimeout(toggleRecord, 0);
+    return;
+  }
   prepareNotes();
+  ensureNotesWatch();
   treeProvider.refresh();
 }
 
@@ -296,7 +320,7 @@ function firstRunWelcome() {
   if (!repoTop || extCtx.globalState.get('welcomed')) return;
   extCtx.globalState.update('welcomed', true);
   vscode.window.showInformationMessage(
-    '🎬 수업 리플레이: 저장(Ctrl+S)할 때마다 스냅샷을 남겨, 하루의 코드 흐름을 복기합니다. 개인 연습 저장소에서 기록을 켜 보세요.',
+    '수업 리플레이: 저장(Ctrl+S)할 때마다 스냅샷을 남겨, 하루의 코드 흐름을 복기합니다. 개인 연습 저장소에서 기록을 켜 보세요.',
     '기록 켜기', '나중에').then(x => { if (x === '기록 켜기') toggleRecord(); });
 }
 
@@ -323,8 +347,8 @@ async function activate(context) {
   // "그 시점의 파일" 가상 문서: lesson-replay:/<sha>/<path> → 해당 커밋의 파일 내용(읽기 전용)
   context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider('lesson-replay', {
     provideTextDocumentContent: (uri) => {
-      const i = uri.path.indexOf('/', 1);
-      return showFile(repoRoot(), uri.path.slice(1, i), uri.path.slice(i + 1));
+      const t = snapshotTarget(uri.path, uri.query);
+      return showFile(repoRoot(), t.sha, t.file);
     }
   }));
 
@@ -337,7 +361,7 @@ async function activate(context) {
   recorder.recoverPending();
 
   // 영업일 아침 필기 틀 + 기록 꺼짐 알림 — 시작 직후·10분마다 확인
-  const tick = () => { prepareNotes(); maybeNudgeRecording(); };
+  const tick = () => { prepareNotes(); ensureNotesWatch(); maybeNudgeRecording(); };
   tick();
   const scaffoldTimer = setInterval(tick, 10 * 60 * 1000);
   context.subscriptions.push({ dispose: () => clearInterval(scaffoldTimer) });
@@ -399,6 +423,7 @@ async function activate(context) {
 
 function deactivate() {
   if (repoWatcher) { repoWatcher.close(); repoWatcher = null; }
+  if (notesWatcher) { notesWatcher.close(); notesWatcher = null; }
   if (recorder) recorder.flushSync();
 }
 

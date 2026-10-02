@@ -5,7 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { diffNewLines, isScaffoldLine, isBusinessDay, isClassHours, ensureScaffold,
-        dateStr, primeShadow, trackSave,
+        dateStr, primeShadow, trackSave, trackFile,
         lineSimilarity, splitEdits, rewriteTimeline } = require('../lib/notes');
 
 test('diffNewLines: 같은 문장을 두 번 적어도 두 번째가 새 줄로 잡힌다', () => {
@@ -24,6 +24,7 @@ test('isScaffoldLine: 틀 헤딩·안내문은 걸러지고 사용자의 #·> �
   assert.ok(isScaffoldLine('## 파트1 (09:10~10:15)'));
   assert.ok(isScaffoldLine('# 2026-08-07 (금) 수업 필기'));
   assert.ok(isScaffoldLine('> 각 파트 제목 아래에 자유롭게 적으세요. 저장할 때마다 적은 시각이 함께 기록되어,'));
+  assert.ok(isScaffoldLine('## 파트1 (09:10~10:20)dd')); // 제목 뒤에 실수로 붙은 글자
   assert.ok(!isScaffoldLine('## 내가 만든 소제목'));
   assert.ok(!isScaffoldLine('> 강사님 인용'));
 });
@@ -83,6 +84,25 @@ test('trackSave: 필기의 빈 줄이 타임라인에도 문단 경계로 남는
   assert.ok(tl[1].endsWith('이어지는 줄'));
   assert.strictEqual(tl[2], '');            // 빈 줄 = 문단 경계
   assert.ok(tl[3].endsWith('다른 주제'));
+  fs.rmSync(repo, { recursive: true, force: true });
+});
+
+test('trackFile: VS Code 밖에서 디스크에 직접 쓴 필기도 타임라인에 남는다 (v1.5.0 F1)', () => {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'lr-tf-'));
+  const dir = path.join(repo, '필기');
+  fs.mkdirSync(dir, { recursive: true });
+  const date = dateStr();
+  const p = path.join(dir, `${date}.md`);
+  fs.writeFileSync(p, '## 파트1 (09:10~10:15)\n', 'utf8');
+  primeShadow(repo, '필기');
+
+  fs.writeFileSync(p, '## 파트1 (09:10~10:15)\nIntelliJ에서 적은 줄\n', 'utf8'); // 다른 IDE의 저장
+  assert.ok(trackFile(repo, '필기', p));
+  assert.ok(trackFile(repo, '필기', p)); // 감시 이벤트가 겹쳐 두 번 와도
+  const tl = fs.readFileSync(path.join(dir, `${date}-타임라인.md`), 'utf8').trim().split('\n');
+  assert.strictEqual(tl.length, 1); // 한 번만 기록
+  assert.match(tl[0], /^\[\d{2}:\d{2}\] IntelliJ에서 적은 줄$/);
+  assert.strictEqual(trackFile(repo, '필기', path.join(dir, '없는파일.md')), false);
   fs.rmSync(repo, { recursive: true, force: true });
 });
 

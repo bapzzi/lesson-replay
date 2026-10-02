@@ -44,3 +44,46 @@ test('빈 값·undefined에 터지지 않는다', () => {
   assert.ok(!isIgnoredWatchPath(''));
   assert.ok(!isIgnoredWatchPath(undefined));
 });
+
+// ── v1.5.0 토글 신뢰성: 실패 원인 분류(B3) · 묵은 index.lock 정리(B4) ──
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { classifyGitError, clearStaleLock } = require('../lib/recorder');
+
+test('classifyGitError: lock·git 없음·권한·기타를 나눈다 (B3)', () => {
+  assert.strictEqual(classifyGitError("fatal: Unable to create 'C:/x/.git/index.lock': File exists.").kind, 'lock');
+  assert.strictEqual(classifyGitError('spawn git ENOENT').kind, 'nogit');
+  assert.strictEqual(classifyGitError('error: open("a.txt"): Permission denied').kind, 'perm');
+  const o = classifyGitError('fatal: something else\nsecond line');
+  assert.strictEqual(o.kind, 'other');
+  assert.strictEqual(o.label, 'fatal: something else');
+});
+
+function repoWithLock(ageMs) {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'lr-lock-'));
+  fs.mkdirSync(path.join(repo, '.git'));
+  const lock = path.join(repo, '.git', 'index.lock');
+  fs.writeFileSync(lock, '');
+  const t = (Date.now() - ageMs) / 1000;
+  fs.utimesSync(lock, t, t);
+  return { repo, lock };
+}
+
+test('clearStaleLock: git 프로세스가 없고 묵은 잠금이면 지운다 (B4)', async () => {
+  const { repo, lock } = repoWithLock(60000);
+  assert.strictEqual(await clearStaleLock(repo, async () => false), 'cleared');
+  assert.ok(!fs.existsSync(lock));
+  fs.rmSync(repo, { recursive: true, force: true });
+});
+
+test('clearStaleLock: git이 돌고 있거나 방금 생긴 잠금은 건드리지 않는다 (B4)', async () => {
+  const a = repoWithLock(60000);
+  assert.strictEqual(await clearStaleLock(a.repo, async () => true), 'busy');
+  assert.ok(fs.existsSync(a.lock));
+  const b = repoWithLock(0);
+  assert.strictEqual(await clearStaleLock(b.repo, async () => false), 'fresh');
+  assert.ok(fs.existsSync(b.lock));
+  assert.strictEqual(await clearStaleLock(os.tmpdir(), async () => false), 'none');
+  for (const r of [a.repo, b.repo]) fs.rmSync(r, { recursive: true, force: true });
+});

@@ -55,6 +55,29 @@ test('parseSignatures: hunk 문맥 우선, 새 파일은 첫 추가 줄 fallback
   assert.strictEqual(sigs.get('abc123|src/fresh.js'), 'export default function Fresh() {');
 });
 
+test('parseSignatures: Java package·import·어노테이션은 건너뛰고 클래스·메서드 줄을 쓴다', () => {
+  const out = [
+    '@@@abc123',
+    'diff --git a/src/OpenAiService.java b/src/OpenAiService.java',
+    '@@ -0,0 +1,9 @@',
+    '+package com.example.inspire_jpa.features.openai.service;',
+    '+',
+    '+import org.springframework.stereotype.Service;',
+    '+@Service',
+    '+public class OpenAiService {',
+    'diff --git a/src/Ctrl.java b/src/Ctrl.java',
+    '@@ -3,0 +4 @@ import lombok.RequiredArgsConstructor;',
+    '+    private final OpenAiService svc;',
+    'diff --git a/src/Only.java b/src/Only.java',
+    '@@ -1 +1 @@',
+    '+import java.util.List;'
+  ].join('\n');
+  const sigs = parseSignatures(out);
+  assert.strictEqual(sigs.get('abc123|src/OpenAiService.java'), 'public class OpenAiService {');
+  assert.strictEqual(sigs.get('abc123|src/Ctrl.java'), 'private final OpenAiService svc;');
+  assert.strictEqual(sigs.get('abc123|src/Only.java'), 'import java.util.List;'); // 전부 잡음이면 첫 후보
+});
+
 test('parseDaysList: 중복 제거·최신순·limit — 커밋 수 상한 없음', () => {
   const out = Array.from({ length: 300 }, (_, i) => `2026-08-${String((i % 3) + 1).padStart(2, '0')}`)
     .concat(['2026-07-31']).join('\n');
@@ -87,4 +110,11 @@ test('firstChangedLine: 삭제만 있는 hunk는 그 자리의 현재 줄', () =
 test('firstChangedLine: hunk 없음(합성 전문 diff 등)=0', () => {
   assert.strictEqual(firstChangedLine('+line1\n+line2'), 0);
   assert.strictEqual(firstChangedLine(''), 0);
+});
+
+test('snapshotTarget: 탭 이름이 아니라 query의 실제 경로로 git show 한다', () => {
+  const { snapshotTarget } = require('../lib/git');
+  assert.deepStrictEqual(snapshotTarget('/abc123/App@1048시점.jsx', 'fe/src/App.jsx'), { sha: 'abc123', file: 'fe/src/App.jsx' });
+  assert.deepStrictEqual(snapshotTarget('/abc123^/App@이전.jsx', 'fe/src/App.jsx'), { sha: 'abc123^', file: 'fe/src/App.jsx' });
+  assert.deepStrictEqual(snapshotTarget('/abc123/src/App.jsx', ''), { sha: 'abc123', file: 'src/App.jsx' }); // query 없는 옛 주소
 });
