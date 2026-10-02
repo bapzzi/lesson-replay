@@ -181,7 +181,7 @@
     ]
   },
   "scripts": {
-    "package": "vsce package",
+    "package": "npx -y @vscode/vsce package --readme-path MARKETPLACE.md",
     "test": "node --test test/*.test.js"
   },
   "repository": { "type": "git", "url": "https://github.com/bapzzi/lesson-replay" }

@@ -6,11 +6,11 @@
 코드를 저장할 때마다 자동 기록해 하루를 타임라인으로 복기하는 VS Code 확장(마켓플레이스 배포, bapzzi/lesson-replay). 수업·독학·어떤 언어든.
 
 ## 현재상태 (2026-10-02)
-v2.0.0 ①단계 개발판(package.json). 마켓은 1.4.0. 1.5.0(기록 켜기 안정화·IntelliJ 병행·IDE 마감 화면)은 커밋 4bdf64a. 2.0 ① = 시간표 없는 자동 세션·필기 틀·내보내기 개편·언어 대응·문법 색칠. 설계 = `docs/specs/2026-10-02-v2-generalize-design.md`.
+v2.0.0(마켓 공개 2026-10-02). 1.5.0(기록 켜기 안정화·IntelliJ 병행·IDE 마감 화면)은 커밋 4bdf64a. 2.0 ① = 시간표 없는 자동 세션·필기 틀·내보내기 개편·언어 대응·문법 색칠. 설계 = `docs/specs/2026-10-02-v2-generalize-design.md`.
 
 ## 다음 할 일
-- 2.0 ①을 노트북에서 1주 사용하며 불편을 `docs/백로그.md`에 모은다.
-- 다음 단계: ② 영어 표시, ③ AI 요약(각각 별도 spec). 마켓 반영 전 README 캡처(`images/`) 교체.
+- 2.0.0을 쓰며 불편을 모은다. 마켓 설명 = `MARKETPLACE.md`(캡처 `images/` = 10-02 데모 하루).
+- 다음 단계: ② 영어 표시, ③ AI 요약(각각 별도 spec).
 
 [![Installs](https://img.shields.io/visual-studio-marketplace/i/bapzzi.lesson-replay?color=success)](https://marketplace.visualstudio.com/items?itemName=bapzzi.lesson-replay)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -158,7 +158,7 @@ node cli.js export 2026-10-05 --repo C:\inspire_6th
 
 ```
 npm test                  # node --test
-npx @vscode/vsce package  # vsix 생성
+npm run package           # vsix 생성(마켓 설명 = MARKETPLACE.md, 저장소 README는 패키지에서 제외)
 ```
 
 MIT License. diff 문법 색칠에 highlight.js(BSD-3-Clause, `media/vendor/highlight.js-LICENSE.txt`), 아이콘에 VS Code codicon(CC-BY-4.0)을 쓴다.
