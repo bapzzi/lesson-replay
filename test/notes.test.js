@@ -180,3 +180,45 @@ test('isBusinessDay: 주말·휴일 제외', () => {
   assert.strictEqual(isBusinessDay(new Date('2026-08-07T10:00:00'), []), true);  // 금
   assert.strictEqual(isBusinessDay(new Date('2026-08-07T10:00:00'), ['2026-08-07']), false);
 });
+
+// ── 2.0 ① 필기 틀 ──
+const notesLib = require('../lib/notes');
+
+test('renderTemplate: 한·영 자리표시를 같은 값으로 바꾸고, 빈 {파트}가 남긴 빈 줄을 정리한다', () => {
+  const r = notesLib.renderTemplate('# {날짜} ({요일}) / {date} {weekday}\n\n{파트}\n\n\n## 막힌 것\n',
+    { date: '2026-10-05', dow: '월', parts: '' });
+  assert.strictEqual(r, '# 2026-10-05 (월) / 2026-10-05 월\n\n## 막힌 것\n');
+});
+
+test('ensureScaffold: 틀 파일이 없으면 1.x와 똑같은 기본 틀(시간표 있음)', () => {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'lr-tpl-'));
+  const cfg = { notesDir: '필기', blocks: ['09:10-10:20', '10:30-11:30'], holidays: [] };
+  const p = notesLib.ensureScaffold(repo, cfg, true);
+  const legacy = [`# ${dateStr()} (${['일', '월', '화', '수', '목', '금', '토'][new Date().getDay()]}) 수업 필기`, '',
+    '> 각 파트 제목 아래에 자유롭게 적으세요. 저장할 때마다 적은 시각이 함께 기록되어,',
+    '> 수업 복기에서 코드 흐름과 자동으로 교차됩니다.', '',
+    '## 파트1 (09:10~10:20)', '', '## 파트2 (10:30~11:30)', ''].join('\n');
+  assert.strictEqual(fs.readFileSync(p, 'utf8'), legacy);
+  fs.rmSync(repo, { recursive: true, force: true });
+});
+
+test('ensureScaffold: 사용자가 만든 _틀.md를 쓰고, 시간표가 없으면 요일과 무관하게 만든다', () => {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'lr-tpl2-'));
+  const cfg = { notesDir: '필기', blocks: [], holidays: [dateStr()] }; // 오늘을 휴일로 둬도
+  fs.mkdirSync(path.join(repo, '필기'));
+  fs.writeFileSync(path.join(repo, '필기', '_틀.md'), '# {날짜} 알고리즘\n\n{파트}\n\n## 오늘 문제\n');
+  const p = notesLib.ensureScaffold(repo, cfg, false);
+  assert.ok(p, '시간표가 없으면 휴일에도 생성');
+  assert.strictEqual(fs.readFileSync(p, 'utf8'), `# ${dateStr()} 알고리즘\n\n## 오늘 문제\n`);
+  fs.rmSync(repo, { recursive: true, force: true });
+});
+
+test('ensureTemplateFile: 없으면 시간표 유무에 맞는 기본 틀로 만들고, 있으면 건드리지 않는다', () => {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'lr-tpl3-'));
+  const p = notesLib.ensureTemplateFile(repo, { notesDir: '필기', blocks: [] });
+  assert.match(fs.readFileSync(p, 'utf8'), /학습 필기/);
+  fs.writeFileSync(p, '내 틀');
+  notesLib.ensureTemplateFile(repo, { notesDir: '필기', blocks: ['09:00-10:00'] });
+  assert.strictEqual(fs.readFileSync(p, 'utf8'), '내 틀');
+  fs.rmSync(repo, { recursive: true, force: true });
+});

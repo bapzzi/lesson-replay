@@ -118,3 +118,44 @@ test('snapshotTarget: 탭 이름이 아니라 query의 실제 경로로 git show
   assert.deepStrictEqual(snapshotTarget('/abc123^/App@이전.jsx', 'fe/src/App.jsx'), { sha: 'abc123^', file: 'fe/src/App.jsx' });
   assert.deepStrictEqual(snapshotTarget('/abc123/src/App.jsx', ''), { sha: 'abc123', file: 'src/App.jsx' }); // query 없는 옛 주소
 });
+
+// ── 2.0 ① 언어 대응: 요약 줄 ──
+test('parseSignatures: Python·C·SQL·Node의 가져오기·주석은 건너뛰고, Markdown 제목은 쓴다', () => {
+  const out = [
+    '@@@s1',
+    'diff --git a/a.py b/a.py', '@@ -0,0 +1,3 @@', '+from typing import List', '+# helper', '+def solve(n):',
+    'diff --git a/m.c b/m.c', '@@ -0,0 +1,2 @@', '+#include <stdio.h>', '+int main(void) {',
+    'diff --git a/q.sql b/q.sql', '@@ -0,0 +1,2 @@', '+-- 2일차', '+SELECT * FROM emp;',
+    'diff --git a/s.js b/s.js', '@@ -0,0 +1,3 @@', "+'use strict';", "+const fs = require('fs');", '+export function load() {',
+    'diff --git a/n.md b/n.md', '@@ -0,0 +1,1 @@', '+# 오늘 배운 것'
+  ].join('\n');
+  const sigs = parseSignatures(out);
+  assert.strictEqual(sigs.get('s1|a.py'), 'def solve(n):');
+  assert.strictEqual(sigs.get('s1|m.c'), 'int main(void) {');
+  assert.strictEqual(sigs.get('s1|q.sql'), 'SELECT * FROM emp;');
+  assert.strictEqual(sigs.get('s1|s.js'), 'export function load() {');
+  assert.strictEqual(sigs.get('s1|n.md'), '# 오늘 배운 것');
+});
+
+test('daySignatures: 실제 git으로 Python 함수·JS 화살표 함수 문맥을 잡는다(저장소에는 아무것도 쓰지 않음)', async () => {
+  const fs = require('fs'), os = require('os'), path = require('path'), cp = require('child_process');
+  const { daySignatures } = require('../lib/git');
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'lr-sig-'));
+  const g = (...a) => cp.execFileSync('git', ['-C', repo, ...a], { stdio: 'pipe' });
+  g('init', '-q'); g('config', 'user.email', 'sig@test.local'); g('config', 'user.name', 's');
+  const pad = Array.from({ length: 8 }, (_, i) => `    x${i} = ${i}`).join('\n');
+  fs.writeFileSync(path.join(repo, 'a.py'), `import os\n\ndef solve(n):\n${pad}\n    return n\n`);
+  const jsPad = Array.from({ length: 8 }, (_, i) => `  const v${i} = ${i};`).join('\n');
+  fs.writeFileSync(path.join(repo, 'b.js'), `import x from 'x';\n\nexport const load = async (id) => {\n${jsPad}\n  return id;\n};\n`);
+  g('add', '-A'); g('commit', '-q', '-m', 'one');
+  fs.writeFileSync(path.join(repo, 'a.py'), `import os\n\ndef solve(n):\n${pad}\n    return n * 2\n`);
+  fs.writeFileSync(path.join(repo, 'b.js'), `import x from 'x';\n\nexport const load = async (id) => {\n${jsPad}\n  return id + 1;\n};\n`);
+  g('add', '-A'); g('commit', '-q', '-m', 'two');
+  const sha = g('rev-parse', 'HEAD').toString().trim();
+  const today = new Date(); const d = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const sigs = await daySignatures(repo, d);
+  assert.strictEqual(sigs.get(`${sha}|a.py`), 'def solve(n):');
+  assert.strictEqual(sigs.get(`${sha}|b.js`), 'export const load = async (id) => {');
+  assert.ok(!fs.existsSync(path.join(repo, '.gitattributes')));
+  fs.rmSync(repo, { recursive: true, force: true });
+});

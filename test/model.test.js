@@ -184,3 +184,53 @@ test('드래그로 seq를 바꾸면 씬 사이 어디로든 배치된다 (소수
   const part2 = day.chapters.find(ch => ch.label === '파트2');
   assert.deepStrictEqual(part2.items.map(i => i.type), ['scene', 'note', 'scene']);
 });
+
+// ── 2.0 ① 구간: 시간표가 없으면 자동 세션 ──
+const { segmentDay } = require('../lib/model');
+const m = (s) => { const [h, mi] = s.split(':').map(Number); return h * 60 + mi; };
+
+test('segmentDay: 시간표가 있으면 파트(지금 동작 그대로)', () => {
+  const r = segmentDay({ blocks: ['09:10-10:20', '10:30-11:30'], times: [m('09:30')], gapMin: 30 });
+  assert.strictEqual(r.mode, 'timetable');
+  assert.deepStrictEqual(r.segments.map(s => s.label), ['파트1', '파트2']);
+});
+
+test('segmentDay: 시간표가 없으면 30분 넘게 쉰 곳에서 세션을 끊는다(30분 정각은 이어짐)', () => {
+  const t = ['20:10', '20:25', '20:55', '21:34', '22:05', '22:40', '23:19'].map(m);
+  const r = segmentDay({ blocks: [], times: t, gapMin: 30 });
+  assert.strictEqual(r.mode, 'sessions');
+  // 20:10~20:55(30분 간격 = 이어짐) | 21:34 (39분 쉼) ~ 22:05 (31분 쉼 → 끊김)
+  assert.deepStrictEqual(r.segments.map(s => `${s.label} ${s.startStr}~${s.endStr}`),
+    ['세션 1 20:10~20:56', '세션 2 21:34~21:35', '세션 3 22:05~22:06', '세션 4 22:40~22:41', '세션 5 23:19~23:20']);
+});
+
+test('segmentDay: 활동이 없으면 세션 0개, 소수점 seq(옮긴 필기)도 끝 범위 안에 든다', () => {
+  assert.deepStrictEqual(segmentDay({ blocks: [], times: [], gapMin: 30 }).segments, []);
+  const r = segmentDay({ blocks: [], times: [600, 610.5], gapMin: 30 });
+  assert.ok(610.5 < r.segments[0].end);
+});
+
+test('buildDay: 시간표가 없으면 커밋·필기가 자동 세션 챕터로 들어간다', () => {
+  const model = buildDay({
+    date: '2026-10-05',
+    notes: [{ id: 'n1', time: '20:12', text: '필기', seq: m('20:12') }],
+    config: { ...CONFIG, blocks: [], sessionGapMinutes: 30 },
+    commits: [c('a', '20:10', [f('app.py', 'A')]), c('b', '22:30', [f('app.py', 'M')]), c('n', '22:31', [f('필기/x.md', 'M')])]
+  });
+  assert.strictEqual(model.mode, 'sessions');
+  const parts = model.chapters.filter(ch => ch.isPart);
+  assert.deepStrictEqual(parts.map(p => p.label), ['세션 1', '세션 2']);
+  assert.strictEqual(parts[0].items.length, 2); // 씬 1 + 필기 1
+  assert.ok(model.chapters.every(ch => ch.isPart)); // 쉬는 시간·시간 외 없음
+});
+
+test('langForFile: 확장자로 문법 색칠 언어를 고르고, 모르면 null', () => {
+  const { langForFile } = require('../lib/highlight');
+  assert.strictEqual(langForFile('be/src/A.java'), 'java');
+  assert.strictEqual(langForFile('fe/App.JSX'), 'javascript');
+  assert.strictEqual(langForFile('q/2일차.sql'), 'sql');
+  assert.strictEqual(langForFile('main.py'), 'python');
+  assert.strictEqual(langForFile('index.vue'), 'xml');
+  assert.strictEqual(langForFile('build.gradle'), null);
+  assert.strictEqual(langForFile('Makefile'), null);
+});

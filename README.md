@@ -3,27 +3,30 @@
 [![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/bapzzi.lesson-replay?label=VS%20Marketplace&color=007ACC)](https://marketplace.visualstudio.com/items?itemName=bapzzi.lesson-replay)
 
 ## 목적
-라이브 코딩 수업의 저장 시점을 자동 기록해 하루를 타임라인으로 복기하는 VS Code 확장(마켓플레이스 배포, bapzzi/lesson-replay).
+코드를 저장할 때마다 자동 기록해 하루를 타임라인으로 복기하는 VS Code 확장(마켓플레이스 배포, bapzzi/lesson-replay). 수업·독학·어떤 언어든.
 
 ## 현재상태 (2026-10-02)
-v1.5.0 개발판(package.json). 마켓은 1.4.0. 1.5.0 = 기록 켜기 안정화·IntelliJ 병행 기록·명령줄 내보내기·화면과 문구 정리. 노트북에 vsix로 먼저 설치해 수업에서 시험 중.
+v2.0.0 ①단계 개발판(package.json). 마켓은 1.4.0. 1.5.0(기록 켜기 안정화·IntelliJ 병행·IDE 마감 화면)은 커밋 4bdf64a. 2.0 ① = 시간표 없는 자동 세션·필기 틀·내보내기 개편·언어 대응·문법 색칠. 설계 = `docs/specs/2026-10-02-v2-generalize-design.md`.
 
 ## 다음 할 일
-- 수업에서 1주 사용하며 불편을 `docs/백로그.md`에 모은다.
-- 안정되면 마켓 반영. 그 전에 README 캡처(`images/`)를 새 화면으로 바꾼다.
+- 2.0 ①을 노트북에서 1주 사용하며 불편을 `docs/백로그.md`에 모은다.
+- 다음 단계: ② 영어 표시, ③ AI 요약(각각 별도 spec). 마켓 반영 전 README 캡처(`images/`) 교체.
 
 [![Installs](https://img.shields.io/visual-studio-marketplace/i/bapzzi.lesson-replay?color=success)](https://marketplace.visualstudio.com/items?itemName=bapzzi.lesson-replay)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 **▶ 설치: [VS Code 마켓플레이스](https://marketplace.visualstudio.com/items?itemName=bapzzi.lesson-replay)**
 
-라이브 코딩 수업에서 **오늘 무엇을 어떤 순서로 만들었는지** 자동 기록하고, 하루를 타임라인으로 복기하는 VS Code 확장.
+**오늘 무엇을 어떤 순서로 만들었는지** 자동 기록하고, 하루를 타임라인으로 복기하는 VS Code 확장. 부트캠프·강의 수업이든 혼자 하는 공부든, 어떤 언어든.
 
-- 저장(`Ctrl+S`)할 때마다 스냅샷 자동 기록. 수업 중 할 일 없음
+- 저장(`Ctrl+S`)할 때마다 스냅샷 자동 기록. 공부 중 할 일 없음
+- 시간표가 있으면 파트(1교시·2교시…)로, 없으면 쉰 시간을 기준으로 세션이 자동으로 나뉨
+- 나만의 필기 틀(`_틀.md`)로 매일 같은 모양의 필기
 - IntelliJ 같은 다른 IDE에서 저장한 코드·필기도 기록. VS Code는 필기 폴더만 열어 두면 됨
 - 필기를 적으면 적은 시각의 코드 사이에 교차 표시
 - 지웠다 다시 만든 흔적(♻️)은 전후 비교로 복기
-- 하루치를 TIL 원자재 md로 내보내기 → AI에 붙여넣으면 초안. VS Code 없이 명령줄로도 가능
+- 하루치를 md로 내보내기: 맨 위 한눈에 표·흐름만 읽어도 오늘 한 일이 보이고, diff는 부록으로. AI에 붙여넣으면 TIL 초안. VS Code 없이 명령줄로도 가능
+- diff는 줄 번호와 문법 색칠(Java·Python·JS·SQL 등 36개 언어)
 - 서버·계정 없음. 데이터는 전부 내 폴더 안의 git·md 파일
 
 ![데모: 하루 조감 → ♻️ 갈아엎음 전후 비교 → 파일 하나의 하루만 필터 → 복기 종료·TIL 내보내기](images/demo.gif)
@@ -45,9 +48,12 @@ v1.5.0 개발판(package.json). 마켓은 1.4.0. 1.5.0 = 기록 켜기 안정화
 
 ## 시작 (한 번만)
 
-1. 실습 폴더 열기. ⚠ **개인 연습 저장소 전용**. git 저장소가 아니면 사이드바 [git 저장소 만들기] 클릭
-2. 하단 상태바 `⊘ 수업 기록 꺼짐` 클릭 → 기록 켜기 (켜는 동안 「기록 켜는 중」 표시)
-3. 설정(`Ctrl+,`)에서 `lessonReplay.blocks`를 내 수업 시간표로 변경 (기본값은 예시)
+1. 공부하는 폴더 열기. ⚠ **개인 연습 저장소 전용**. git 저장소가 아니면 사이드바 [git 저장소 만들기] 클릭
+2. 시작 안내(또는 명령 팔레트)에서 고르기
+   - **시간표가 있는 수업**: 설정(`Ctrl+,`)의 `lessonReplay.blocks`를 내 시간표로 변경(기본값은 예시 7칸)
+   - **자유 학습**: 시간표를 비우고 자동 세션으로(`lessonReplay.sessionGapMinutes`, 기본 30분)
+3. 하단 상태바 `⊘ 기록 꺼짐` 클릭 → 기록 켜기 (켜는 동안 「기록 켜는 중」 표시)
+4. (선택) 사이드바 「오늘 필기」 옆 버튼 → **필기 틀 편집**. `{날짜}` `{요일}` `{파트}` 자리표시를 쓸 수 있음
 
 사고 방어 내장: 원격 연결 저장소는 켜기 전 1회 확인 · CRA 등이 만드는 중첩 git 저장소 감지 경고 · node_modules 자동 .gitignore · 남은 `index.lock` 자동 정리(git 작업이 없을 때만)
 
@@ -55,8 +61,8 @@ v1.5.0 개발판(package.json). 마켓은 1.4.0. 1.5.0 = 기록 켜기 안정화
 
 | 표시 | 뜻 |
 |---|---|
-| `⊘ 수업 기록 꺼짐` | 기록 안 함. 클릭=켜기 |
-| `⏺ 수업 기록중` | 켜짐 |
+| `⊘ 기록 꺼짐` | 기록 안 함. 클릭=켜기 |
+| `⏺ 기록중` | 켜짐 |
 | `⏺ 기록중 · 14:32 스냅샷` | 방금 스냅샷 저장됨 |
 | `⚠ 기록 실패 · 14:32` | 커밋 실패. 마우스를 올리면 원인(잠금·권한·git 없음), 알림의 "로그 보기"로 자세히 |
 | `⚠ 기록 불가: git 저장소 아님` | 사이드바 [git 저장소 만들기] |
@@ -65,15 +71,18 @@ v1.5.0 개발판(package.json). 마켓은 1.4.0. 1.5.0 = 기록 켜기 안정화
 
 ## 하루 흐름
 
-- **수업 전**: 상태바 `⏺` 확인 → 사이드바 **오늘 필기**(평일 아침 자동 생성)를 한쪽에 열어 두기
-- **수업 중**: 코딩+저장만. 강사 설명 때 필기 파일의 해당 파트 아래 **한 줄** 적고 저장하면 시각이 자동 기록됨. 필기는 VS Code·IntelliJ·메모장 어디서 저장해도 된다
+- **시작 전**: 상태바 `⏺` 확인 → 사이드바 **오늘 필기**를 한쪽에 열어 두기(시간표가 있으면 평일 아침, 없으면 그날 첫 저장 때 자동 생성)
+- **공부 중**: 코딩+저장만. 강사 설명 때 필기 파일의 해당 파트 아래 **한 줄** 적고 저장하면 시각이 자동 기록됨. 필기는 VS Code·IntelliJ·메모장 어디서 저장해도 된다
 - **복기**: 사이드바에서 오늘 날짜 클릭 →
   1. 스탯 줄·미니맵으로 하루 조감
   2. 필요한 파트만 **＋ 배운 것**을 눌러 한두 줄 정리
   3. 스탯 줄 **갈아엎음 N** 클릭 → 갈아엎은 씬 전후 비교 (오늘의 트러블슈팅 소재)
   4. 빈 구간에 **＋ 필기** 보충, 다음에 또 볼 씬은 **☆ → ★** 표시 (★ 칩·사이드바에 모임)
   5. **파일 칩** 클릭 → 핵심 파일의 하루 성장만 모아 보기
-- **TIL**: 레일 끝 **[TIL 원자재로 내보내기]** → 생성된 md를 통째로 AI에 붙여넣기 → 초안이 한줄요약·배운 내용·실습·문제와 해결·다음 할 일 구성으로 나옴 (프롬프트는 `lessonReplay.tilPrompt`에서 수정)
+- **TIL**: 레일 끝 **[TIL 원자재로 내보내기]** → `복기/날짜-복기.md`
+  - 맨 위: 사실 한 줄(기록 시간·구간·파일·필기·가장 많이 바뀐 곳) → **한눈에** 표 → **흐름**(필기·코드 시간순) → **다시 볼 곳**(★·시행착오 후보)
+  - 부록: A 파일별 하루 변화 · B 시행착오 후보의 구간별 변화 · C 필기 전문
+  - 통째로 AI에 붙여넣으면 TIL 초안. 프롬프트를 맨 위에 넣으려면 `lessonReplay.includeTilPrompt`
 
 ## 화면 요소
 
@@ -120,7 +129,8 @@ node cli.js export 2026-10-05 --repo C:\inspire_6th
 
 | 설정 | 기본 | 설명 |
 |---|---|---|
-| `blocks` | 예시 7블록 | 수업 시간표(=파트). **내 수업으로 변경** |
+| `blocks` | 예시 7블록 | 수업 시간표(=파트). **내 수업으로 변경**, 비우면(`[]`) 자동 세션 |
+| `sessionGapMinutes` | 30 | 자동 세션: 이 시간(분)보다 오래 쉬면 새 세션 |
 | `paragraphGapMinutes` | 3 | 이 텀(분) 넘게 쉬면 새 단락 |
 | `tilPrompt` | 기본 프롬프트 | TIL 내보내기 상단 AI 요청문 |
 | `commitDelaySeconds` | 20 | 저장 후 스냅샷까지 대기 |
@@ -147,8 +157,8 @@ node cli.js export 2026-10-05 --repo C:\inspire_6th
 ## 개발
 
 ```
-npm test                  # node --test, 70종
+npm test                  # node --test
 npx @vscode/vsce package  # vsix 생성
 ```
 
-MIT License
+MIT License. diff 문법 색칠에 highlight.js(BSD-3-Clause, `media/vendor/highlight.js-LICENSE.txt`), 아이콘에 VS Code codicon(CC-BY-4.0)을 쓴다.

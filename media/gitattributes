@@ -1,0 +1,32 @@
+# 수업 리플레이: 씬 요약 줄(변경이 어느 함수·클래스 안인지)을 뽑을 때만 쓰는 git 속성 파일.
+# git 내장 diff 드라이버를 확장자별로 켠다. 사용자 저장소에는 쓰지 않고, 요약 추출 git 명령에
+# -c core.attributesFile=<이 파일>로만 붙인다. 저장소 안 .gitattributes가 있으면 그쪽이 우선한다.
+# js 드라이버는 git 내장이 아니라 lib/git.js의 JS_FUNCNAME(-c diff.js.xfuncname)으로 정의한다.
+*.py diff=python
+*.java diff=java
+*.kt diff=kotlin
+*.kts diff=kotlin
+*.go diff=golang
+*.rs diff=rust
+*.c diff=cpp
+*.h diff=cpp
+*.cc diff=cpp
+*.cpp diff=cpp
+*.hpp diff=cpp
+*.cs diff=csharp
+*.php diff=php
+*.rb diff=ruby
+*.css diff=css
+*.scss diff=css
+*.less diff=css
+*.html diff=html
+*.htm diff=html
+*.vue diff=html
+*.md diff=markdown
+*.sh diff=bash
+*.js diff=js
+*.jsx diff=js
+*.mjs diff=js
+*.cjs diff=js
+*.ts diff=js
+*.tsx diff=js

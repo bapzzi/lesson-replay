@@ -8,6 +8,7 @@ const path = require('path');
 const { exportDayToFile } = require('./lib/exportDay');
 const { isRepo } = require('./lib/git');
 const { dateStr } = require('./lib/notes');
+const { t } = require('./lib/i18n');
 
 // settings.json은 주석·끝 쉼표를 허용하는 JSONC다. 문자열 안의 //(URL 등)는 건드리지 않는다
 function parseJsonc(text) {
@@ -63,17 +64,16 @@ function parseArgs(argv) {
   return a;
 }
 
-const USAGE = '사용법: node cli.js export [YYYY-MM-DD] [--repo <실습 저장소>] [--settings <settings.json>]';
-
 async function main(argv) {
+  const usage = t('cli.usage');
   const a = parseArgs(argv);
-  if (a._[0] !== 'export') { console.error(USAGE); return 2; }
+  if (a._[0] !== 'export') { console.error(usage); return 2; }
   const date = a._[1] || dateStr();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { console.error(`날짜 형식이 아님: ${date}\n${USAGE}`); return 2; }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { console.error(`${t('cli.badDate', { date })}\n${usage}`); return 2; }
   const c = loadConfig(a.settings || defaultSettingsPath());
   // 저장소: --repo > archiveDir(오너 기기는 실습 저장소와 같다) > 현재 폴더
   const repo = path.resolve(a.repo || c.archiveDir || process.cwd());
-  if (!(await isRepo(repo))) { console.error(`git 저장소가 아님: ${repo}`); return 1; }
+  if (!(await isRepo(repo))) { console.error(t('cli.notRepo', { repo })); return 1; }
   const root = c.archiveDir || repo;
   const p = await exportDayToFile(repo, root, c, date);
   console.log(p);
